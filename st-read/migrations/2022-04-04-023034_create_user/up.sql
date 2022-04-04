@@ -1,0 +1,8 @@
+CREATE TABLE User (
+	userID INT AUTO_INCREMENT PRIMARY KEY,
+	email VARCHAR(40) NOT NULL,
+	name VARCHAR(40) NOT NULL,
+	passwordHash VARBINARY(32) NOT NULL,
+	darkMode BOOLEAN NOT NULL,
+	emailNotificationsEnabled BOOLEAN NOT NULL
+);

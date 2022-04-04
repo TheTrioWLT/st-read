@@ -1,0 +1,4 @@
+CREATE TABLE PostComment (
+	commentID INT AUTO_INCREMENT PRIMARY KEY,
+	text VARCHAR(256)
+);
