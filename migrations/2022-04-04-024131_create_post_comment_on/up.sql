@@ -1,5 +1,5 @@
 CREATE TABLE PostCommentOn (
-	commentID INT,
-	postID INT,
+	commentID INT NOT NULL,
+	postID INT NOT NULL,
 	PRIMARY KEY (commentID, postID)
 );

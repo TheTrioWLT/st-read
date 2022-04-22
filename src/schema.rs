@@ -2,23 +2,23 @@ table! {
     CommentReaction (userID, commentID) {
         userID -> Integer,
         commentID -> Integer,
-        upvote -> Nullable<Bool>,
+        upvote -> Bool,
     }
 }
 
 table! {
     Post (postID) {
         postID -> Integer,
-        datePosted -> Nullable<Datetime>,
-        title -> Nullable<Varchar>,
-        text -> Nullable<Varchar>,
+        datePosted -> Datetime,
+        title -> Varchar,
+        text -> Varchar,
     }
 }
 
 table! {
     PostComment (commentID) {
         commentID -> Integer,
-        text -> Nullable<Varchar>,
+        text -> Varchar,
     }
 }
 
@@ -40,7 +40,7 @@ table! {
     PostReaction (userID, postID) {
         userID -> Integer,
         postID -> Integer,
-        upvote -> Nullable<Bool>,
+        upvote -> Bool,
     }
 }
 

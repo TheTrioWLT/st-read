@@ -1,6 +1,6 @@
 CREATE TABLE PostReaction (
-	userID INT,
-	postID INT,
-	upvote BOOLEAN,
+	userID INT NOT NULL,
+	postID INT NOT NULL,
+	upvote BOOLEAN NOT NULL,
 	PRIMARY KEY (userID, postID)
 );

@@ -1,5 +1,5 @@
 CREATE TABLE PostComments (
-	userID INT,
-	commentID INT,
+	userID INT NOT NULL,
+	commentID INT NOT NULL,
 	PRIMARY KEY (userID, commentID)
 );

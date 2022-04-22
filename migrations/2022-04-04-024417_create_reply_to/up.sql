@@ -1,5 +1,5 @@
 CREATE TABLE ReplyTo (
-	parentComment INT,
-	childComment INT,
+	parentComment INT NOT NULL,
+	childComment INT NOT NULL,
 	PRIMARY KEY (parentComment, childComment)
 );

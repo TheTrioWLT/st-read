@@ -1,5 +1,5 @@
 CREATE TABLE Posts (
-	userID INT,
-	postID INT,
+	userID INT NOT NULL,
+	postID INT NOT NULL,
 	PRIMARY KEY (userID, postID)
 );
