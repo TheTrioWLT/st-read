@@ -10,10 +10,10 @@ use std::{
 };
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Corner, Direction, Layout},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, ListState},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame, Terminal,
 };
 
@@ -58,6 +58,11 @@ impl<T> StatefulList<T> {
         self.state.select(Some(i));
     }
 
+    fn selected(&self) -> Option<&T> {
+        let i = self.state.selected()?;
+        self.items.get(i)
+    }
+
     fn unselect(&mut self) {
         self.state.select(None);
     }
@@ -70,77 +75,68 @@ impl<T> StatefulList<T> {
 /// Check the event handling at the bottom to see how to change the state on incoming events.
 /// Check the drawing logic for items on how to specify the highlighting style for selected items.
 struct App<'a> {
-    items: StatefulList<(&'a str, usize)>,
-    events: Vec<(&'a str, &'a str)>,
+    posts: StatefulList<(
+        &'a str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    )>,
+    viewing_post: Option<(
+        &'a str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+    )>,
 }
 
 impl<'a> App<'a> {
     fn new() -> App<'a> {
         App {
-            items: StatefulList::with_items(vec![
-                ("Item0", 1),
-                ("Item1", 2),
-                ("Item2", 1),
-                ("Item3", 3),
-                ("Item4", 1),
-                ("Item5", 4),
-                ("Item6", 1),
-                ("Item7", 3),
-                ("Item8", 1),
-                ("Item9", 6),
-                ("Item10", 1),
-                ("Item11", 3),
-                ("Item12", 1),
-                ("Item13", 2),
-                ("Item14", 1),
-                ("Item15", 1),
-                ("Item16", 4),
-                ("Item17", 1),
-                ("Item18", 5),
-                ("Item19", 4),
-                ("Item20", 1),
-                ("Item21", 2),
-                ("Item22", 1),
-                ("Item23", 3),
-                ("Item24", 1),
+            posts: StatefulList::with_items(vec![
+                (
+                    "My New Cat",
+                    "I just purchased a new cat named Fluffy ...",
+                    "33 Comments, 152 Upvotes",
+                    "Troy Neubauer",
+                    "",
+                    "",
+                    ""
+                ),
+                (
+                    "Why I hate Windows",
+                    "I've had enough with Windows ...",
+                    "91 Comments, 0 Upvotes",
+                    "Luke Newcomb",
+                    "I have had enough with Windows. Today my machine auto-updated to Windows 11! Deleting my entire Linux partition in the process.",
+                    "As deserved for a Linux user lmao. \"I use Arch BTW.\" Get out of here.",
+                    "Jeremiah Webb"
+                ),
+                (
+                    "Hello ST-Read",
+                    "Hello ST-read. Welcome to our new site! ...",
+                    "12 Comments, 4 Upvotes",
+                    "Troy Neubauer",
+                    "",
+                    "",
+                    ""
+                ),
             ]),
-            events: vec![
-                ("Event1", "INFO"),
-                ("Event2", "INFO"),
-                ("Event3", "CRITICAL"),
-                ("Event4", "ERROR"),
-                ("Event5", "INFO"),
-                ("Event6", "INFO"),
-                ("Event7", "WARNING"),
-                ("Event8", "INFO"),
-                ("Event9", "INFO"),
-                ("Event10", "INFO"),
-                ("Event11", "CRITICAL"),
-                ("Event12", "INFO"),
-                ("Event13", "INFO"),
-                ("Event14", "INFO"),
-                ("Event15", "INFO"),
-                ("Event16", "INFO"),
-                ("Event17", "ERROR"),
-                ("Event18", "ERROR"),
-                ("Event19", "INFO"),
-                ("Event20", "INFO"),
-                ("Event21", "WARNING"),
-                ("Event22", "INFO"),
-                ("Event23", "INFO"),
-                ("Event24", "WARNING"),
-                ("Event25", "INFO"),
-                ("Event26", "INFO"),
-            ],
+            viewing_post: None,
         }
     }
 
-    /// Rotate through the event list.
-    /// This only exists to simulate some kind of "progress"
-    fn on_tick(&mut self) {
-        let event = self.events.remove(0);
-        self.events.push(event);
-    }
+    // /// Rotate through the event list.
+    // /// This only exists to simulate some kind of "progress"
+    // fn on_tick(&mut self) {
+    //     let event = self.events.remove(0);
+    //     self.events.push(event);
+    // }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -188,19 +184,26 @@ fn run_app<B: Backend>(
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Left => app.items.unselect(),
-                    KeyCode::Down => app.items.next(),
-                    KeyCode::Char('j') => app.items.next(),
-                    KeyCode::Up => app.items.previous(),
-                    KeyCode::Char('k') => app.items.previous(),
+                    KeyCode::Left => app.posts.unselect(),
+                    KeyCode::Down => app.posts.next(),
+                    KeyCode::Char('j') => app.posts.next(),
+                    KeyCode::Up => app.posts.previous(),
+                    KeyCode::Char('k') => app.posts.previous(),
+                    KeyCode::Right => {
+                        let selected = app.posts.selected();
+                        app.viewing_post = selected.map(|s| *s);
+                    }
                     _ => {}
                 }
             }
         }
+
+        /*
         if last_tick.elapsed() >= tick_rate {
             app.on_tick();
             last_tick = Instant::now();
         }
+        */
     }
 }
 
@@ -211,36 +214,73 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
-    // Iterate through all elements in the `items` app and append some debug text to it.
-    let items: Vec<ListItem> = app
-        .items
+    let posts: Vec<ListItem> = app
+        .posts
         .items
         .iter()
         .map(|i| {
-            let mut lines = vec![Spans::from(i.0)];
-            for _ in 0..i.1 {
-                lines.push(Spans::from(Span::styled(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-                    Style::default().add_modifier(Modifier::ITALIC),
-                )));
-            }
-            ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
+            let mut lines = Vec::new();
+
+            lines.push(Spans::from(Span::styled(i.0, Style::default())));
+            lines.push(Spans::from(Span::styled(
+                format!("{}", i.1),
+                Style::default().add_modifier(Modifier::ITALIC),
+            )));
+            lines.push(Spans::from(Span::styled(
+                "",
+                Style::default().add_modifier(Modifier::ITALIC),
+            )));
+            lines.push(Spans::from(Span::styled(
+                i.2,
+                Style::default().add_modifier(Modifier::ITALIC),
+            )));
+            lines.push(Spans::from(Span::styled(
+                format!("by {}", i.3),
+                Style::default().add_modifier(Modifier::ITALIC),
+            )));
+
+            ListItem::new(lines).style(Style::default().fg(Color::Gray))
         })
         .collect();
 
-    // Create a List from all list items and highlight the currently selected one
-    let items = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("List"))
+    // Create a List from all posts and highlight the currently selected one
+    let posts = List::new(posts)
+        .block(Block::default().borders(Borders::ALL).title("Posts"))
         .highlight_style(
             Style::default()
-                .bg(Color::LightGreen)
+                .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol(">> ");
 
-    // We can now render the item list
-    f.render_stateful_widget(items, chunks[0], &mut app.items.state);
+    // We can now render the posts list
+    f.render_stateful_widget(posts, chunks[0], &mut app.posts.state);
 
+    if let Some(vp) = app.posts.selected() {
+        let mut text = Vec::new();
+
+        let text_strs = format!(
+            "{}\nby {}\n\n{}\n\nTop Comments\n{}\n- {}",
+            vp.0, vp.3, vp.4, vp.5, vp.6
+        );
+
+        for line in text_strs.split('\n') {
+            text.push(Spans::from(vec![Span::raw(line)]));
+        }
+
+        let post = Paragraph::new(text)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Viewing Post:"),
+            )
+            .style(Style::default().fg(Color::Gray))
+            .wrap(tui::widgets::Wrap { trim: false });
+
+        f.render_widget(post, chunks[1]);
+    }
+
+    /*
     // Let's do the same for the events.
     // The event list doesn't have any state and only displays the current state of the list.
     let events: Vec<ListItem> = app
@@ -285,4 +325,5 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .block(Block::default().borders(Borders::ALL).title("List"))
         .start_corner(Corner::BottomLeft);
     f.render_widget(events_list, chunks[1]);
+    */
 }
