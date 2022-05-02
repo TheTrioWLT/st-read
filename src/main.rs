@@ -5,64 +5,12 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{error::Error, io, time::Duration};
-use tui::{
-    backend::{Backend, CrosstermBackend},
-    widgets::ListState,
-    Terminal,
-};
+use tui::{backend::CrosstermBackend, widgets::ListState, Terminal};
 
 mod app;
-
-struct StatefulList<T> {
-    state: ListState,
-    items: Vec<T>,
-}
-
-impl<T> StatefulList<T> {
-    fn with_items(items: Vec<T>) -> StatefulList<T> {
-        StatefulList {
-            state: ListState::default(),
-            items,
-        }
-    }
-
-    fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.items.len() - 1 {
-                    i
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    0
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    fn selected(&self) -> Option<&T> {
-        let i = self.state.selected()?;
-        self.items.get(i)
-    }
-
-    fn unselect(&mut self) {
-        self.state.select(None);
-    }
-}
+mod list;
+mod posts_list;
+mod viewing_post;
 
 use diesel::prelude::*;
 use st_read;

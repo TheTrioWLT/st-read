@@ -6,87 +6,86 @@ use std::{
 use crossterm::event::{self, Event, KeyCode};
 use tui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
     Frame, Terminal,
 };
 
-use crate::StatefulList;
+use crate::{
+    posts_list::PostsListFrame,
+    viewing_post::{Comment, ViewingPostFrame},
+};
 
 #[derive(Debug, Clone, Copy)]
-enum AppView {
+pub enum AppView {
     Homepage,
     UserProfile,
 }
 
-/// This struct holds the current state of the app.
-pub struct App<'a> {
-    posts: StatefulList<(
-        &'a str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-    )>,
-    viewing_post: Option<(
-        &'a str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-    )>,
-    current_view: AppView,
+#[derive(Debug, Clone, Copy)]
+pub enum SelectedFrame {
+    Posts,
+    ViewPost,
+    CreatePost,
 }
 
-impl<'a> App<'a> {
-    pub fn new() -> App<'a> {
+#[derive(Debug, Clone)]
+pub struct Post {
+    pub title: &'static str,
+    pub short: &'static str,
+    pub stats: &'static str,
+    pub author: &'static str,
+    pub full: &'static str,
+    pub comments: Vec<Comment>,
+}
+
+/// This struct holds the current state of the app.
+pub struct App {
+    pub page_title: PageTitle,
+    pub posts_frame: PostsListFrame,
+    pub view: AppView,
+    pub selected_frame: SelectedFrame,
+    pub viewing_frame: ViewingPostFrame,
+    pub quittable: bool,
+}
+
+impl App {
+    pub fn new() -> Self {
         App {
-            posts: StatefulList::with_items(vec![
-                (
-                    "My New Cat",
-                    "I just purchased a new cat named Fluffy ...",
-                    "33 Comments, 152 Upvotes",
-                    "Troy Neubauer",
-                    "",
-                    "",
-                    ""
-                ),
-                (
-                    "Why I hate Windows",
-                    "I've had enough with Windows ...",
-                    "91 Comments, 0 Upvotes",
-                    "Luke Newcomb",
-                    "I have had enough with Windows. Today my machine auto-updated to Windows 11! Deleting my entire Linux partition in the process.",
-                    "As deserved for a Linux user lmao. \"I use Arch BTW.\" Get out of here.",
-                    "Jeremiah Webb"
-                ),
-                (
-                    "Hello ST-Read",
-                    "Hello ST-read. Welcome to our new site! ...",
-                    "12 Comments, 4 Upvotes",
-                    "Troy Neubauer",
-                    "",
-                    "",
-                    ""
-                ),
+            page_title: PageTitle::new("Homepage"),
+            posts_frame: PostsListFrame::with_items(vec![
+                    Post {
+                        title: "My New Cat",
+                        short: "I just purchased a new cat named Fluffy ...",
+                        stats: "33 Comments, 152 Upvotes",
+                        author: "Troy Neubauer",
+                        full: "",
+                        comments: Vec::new()
+                    },
+                    Post {
+                        title: "Why I hate Windows",
+                        short: "I've had enough with Windows ...",
+                        stats: "91 Comments, 0 Upvotes",
+                        author: "Luke Newcomb",
+                        full: "I have had enough with Windows. Today my machine auto-updated to Windows 11! Deleting my entire Linux partition in the process.",
+                        comments: vec![Comment::new("As deserved for a Linux user lmao. \"I use Arch BTW.\" Get out of here.", "Jeremiah Webb")]
+                    },
+                    Post {
+                        title: "Hello ST-Read",
+                        short: "Hello ST-read. Welcome to our new site! ...",
+                        stats: "12 Comments, 4 Upvotes",
+                        author: "Troy Neubauer",
+                        full: "",
+                        comments: Vec::new()
+                    },
             ]),
-            viewing_post: None,
-            current_view: AppView::Homepage
+            viewing_frame: ViewingPostFrame::new(),
+            view: AppView::Homepage,
+            selected_frame: SelectedFrame::Posts,
+            quittable: true
         }
     }
-
-    // /// Rotate through the event list.
-    // /// This only exists to simulate some kind of "progress"
-    // fn on_tick(&mut self) {
-    //     let event = self.events.remove(0);
-    //     self.events.push(event);
-    // }
 }
 
 pub fn run_app<B: Backend>(
@@ -101,30 +100,29 @@ pub fn run_app<B: Backend>(
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
+
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Left => app.posts.unselect(),
-                    KeyCode::Down => app.posts.next(),
-                    KeyCode::Char('j') => app.posts.next(),
-                    KeyCode::Up => app.posts.previous(),
-                    KeyCode::Char('k') => app.posts.previous(),
-                    KeyCode::Right => {
-                        let selected = app.posts.selected();
-                        app.viewing_post = selected.map(|s| *s);
+                if app.quittable && matches!(key.code, KeyCode::Char('q')) {
+                    return Ok(());
+                }
+
+                match app.selected_frame {
+                    SelectedFrame::Posts => {
+                        PostsListFrame::handle_key(&mut app, key);
                     }
-                    _ => {}
+                    SelectedFrame::ViewPost => {
+                        ViewingPostFrame::handle_key(&mut app, key);
+                    }
+                    SelectedFrame::CreatePost => unreachable!(),
                 }
             }
         }
 
-        /*
         if last_tick.elapsed() >= tick_rate {
-            app.on_tick();
+            // app.on_tick();
             last_tick = Instant::now();
         }
-        */
     }
 }
 
@@ -134,132 +132,83 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(7), Constraint::Percentage(93)].as_ref())
         .split(f.size());
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(vertical[1]);
 
-    let posts: Vec<ListItem> = app
-        .posts
-        .items
-        .iter()
-        .map(|i| {
-            let mut lines = Vec::new();
+    let horizontal = if app.viewing_frame.has_post() {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(vertical[1])
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(100)].as_ref())
+            .split(vertical[1])
+    };
 
-            lines.push(Spans::from(Span::styled(i.0, Style::default())));
-            lines.push(Spans::from(Span::styled(
-                format!("{}", i.1),
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
-            lines.push(Spans::from(Span::styled(
-                "",
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
-            lines.push(Spans::from(Span::styled(
-                i.2,
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
-            lines.push(Spans::from(Span::styled(
-                format!("by {}", i.3),
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
+    app.page_title.render(f, vertical[0]);
 
-            ListItem::new(lines).style(Style::default().fg(Color::Gray))
-        })
-        .collect();
-
-    // Create a List from all posts and highlight the currently selected one
-    let posts = List::new(posts)
-        .block(Block::default().borders(Borders::ALL).title("Posts"))
-        .highlight_style(
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol(">> ");
-
-    if let Some(vp) = app.posts.selected() {
-        let mut text = Vec::new();
-
-        let text_strs = format!(
-            "{}\nby {}\n\n{}\n\nTop Comments\n{}\n- {}",
-            vp.0, vp.3, vp.4, vp.5, vp.6
+    if matches!(app.view, AppView::Homepage) {
+        app.posts_frame.render(
+            f,
+            horizontal[0],
+            matches!(app.selected_frame, SelectedFrame::Posts),
         );
 
-        for line in text_strs.split('\n') {
-            text.push(Spans::from(vec![Span::raw(line)]));
+        if app.viewing_frame.has_post() {
+            app.viewing_frame.render(
+                f,
+                horizontal[1],
+                matches!(app.selected_frame, SelectedFrame::ViewPost),
+            );
         }
+    }
+}
 
-        let post = Paragraph::new(text)
+pub fn get_border_style(selected: bool, locked: bool) -> Style {
+    if selected {
+        if locked {
+            Style::default()
+                .fg(Color::LightMagenta)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+                .fg(Color::LightGreen)
+                .add_modifier(Modifier::BOLD)
+        }
+    } else {
+        Style::default().fg(Color::Gray)
+    }
+}
+
+pub struct PageTitle {
+    pub title: String,
+}
+
+impl PageTitle {
+    pub fn new(title: impl AsRef<str>) -> Self {
+        Self {
+            title: String::from(title.as_ref()),
+        }
+    }
+
+    pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        let page_title_block = Paragraph::new(self.title.clone())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title("Viewing Post:"),
+                    .border_style(Style::default().fg(Color::LightCyan)),
             )
-            .style(Style::default().fg(Color::Gray))
+            .style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )
             .wrap(tui::widgets::Wrap { trim: false });
 
-        if matches!(app.current_view, AppView::Homepage) {
-            f.render_widget(post, chunks[1]);
-        }
+        f.render_widget(page_title_block, area);
     }
 
-    if matches!(app.current_view, AppView::Homepage) {
-        // We can now render the posts list
-        f.render_stateful_widget(posts, chunks[0], &mut app.posts.state);
+    pub fn set_title(&mut self, title: impl AsRef<str>) {
+        self.title = String::from(title.as_ref());
     }
-
-    let page_title_block = Paragraph::new("Homepage")
-        .block(Block::default().borders(Borders::ALL))
-        .style(Style::default().fg(Color::Gray))
-        .wrap(tui::widgets::Wrap { trim: false });
-
-    f.render_widget(page_title_block, vertical[0]);
-
-    /*
-    // Let's do the same for the events.
-    // The event list doesn't have any state and only displays the current state of the list.
-    let events: Vec<ListItem> = app
-        .events
-        .iter()
-        .rev()
-        .map(|&(event, level)| {
-            // Colorcode the level depending on its type
-            let s = match level {
-                "CRITICAL" => Style::default().fg(Color::Red),
-                "ERROR" => Style::default().fg(Color::Magenta),
-                "WARNING" => Style::default().fg(Color::Yellow),
-                "INFO" => Style::default().fg(Color::Blue),
-                _ => Style::default(),
-            };
-            // Add a example datetime and apply proper spacing between them
-            let header = Spans::from(vec![
-                Span::styled(format!("{:<9}", level), s),
-                Span::raw(" "),
-                Span::styled(
-                    "2020-01-01 10:00:00",
-                    Style::default().add_modifier(Modifier::ITALIC),
-                ),
-            ]);
-            // The event gets its own line
-            let log = Spans::from(vec![Span::raw(event)]);
-
-            // Here several things happen:
-            // 1. Add a `---` spacing line above the final list entry
-            // 2. Add the Level + datetime
-            // 3. Add a spacer line
-            // 4. Add the actual event
-            ListItem::new(vec![
-                Spans::from("-".repeat(chunks[1].width as usize)),
-                header,
-                Spans::from(""),
-                log,
-            ])
-        })
-        .collect();
-    let events_list = List::new(events)
-        .block(Block::default().borders(Borders::ALL).title("List"))
-        .start_corner(Corner::BottomLeft);
-    f.render_widget(events_list, chunks[1]);
-    */
 }
