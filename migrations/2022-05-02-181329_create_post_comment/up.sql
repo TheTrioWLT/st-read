@@ -1,4 +1,4 @@
 CREATE TABLE PostComment (
-    comment_id SERIAL PRIMARY KEY NOT NULL,
-    text VARCHAR(256) NOT NULL
+    comment_id SERIAL UNIQUE PRIMARY KEY,
+    text TEXT NOT NULL
 );

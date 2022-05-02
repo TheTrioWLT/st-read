@@ -1,6 +1,6 @@
 CREATE TABLE post (
-    post_id SERIAL PRIMARY KEY,
+    post_id SERIAL UNIQUE PRIMARY KEY,
     date_posted TIMESTAMP NOT NULL,
-    title VARCHAR(40) NOT NULL,
-    text VARCHAR(1024) NOT NULL
+    title TEXT NOT NULL,
+    text TEXT NOT NULL
 );

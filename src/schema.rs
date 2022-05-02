@@ -10,15 +10,15 @@ table! {
     post (post_id) {
         post_id -> Int4,
         date_posted -> Timestamp,
-        title -> Varchar,
-        text -> Varchar,
+        title -> Text,
+        text -> Text,
     }
 }
 
 table! {
     postcomment (comment_id) {
         comment_id -> Int4,
-        text -> Varchar,
+        text -> Text,
     }
 }
 
