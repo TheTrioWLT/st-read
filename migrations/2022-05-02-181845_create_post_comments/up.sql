@@ -1,7 +1,7 @@
-CREATE TABLE post_comments (
-    userID INT NOT NULL,
-    commentID INT NOT NULL,
-    PRIMARY KEY (userID, commentID),
-    FOREIGN KEY (userID) REFERENCES users(userID),
-    FOREIGN KEY (commentID) REFERENCES post_comment(commentID)
+CREATE TABLE PostComments (
+    user_id INT NOT NULL,
+    comment_id INT NOT NULL,
+    PRIMARY KEY (user_id, comment_id),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id),
+    FOREIGN KEY (comment_id) REFERENCES PostComment(comment_id)
 );

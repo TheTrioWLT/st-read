@@ -64,7 +64,37 @@ impl<T> StatefulList<T> {
     }
 }
 
+use diesel::prelude::*;
+use st_read;
+
 fn main() -> Result<(), Box<dyn Error>> {
+    use st_read::models::*;
+    use st_read::schema::posts::dsl::*;
+
+    let connection = st_read::establish_connection();
+    /*let results = posts.select()
+        .load::<Post>(&connection)
+        .expect("Error loading posts");
+
+    println!("Displaying {} posts", results.len());
+    for post in results {
+        println!("{}", post.title);
+        println!("----------\n");
+        println!("{}", post.text);
+    }
+    */
+    let post = st_read::models::Post {
+        postID: 0,
+        datePosted: std::time::SystemTime::now(),
+        title: "My first post".to_owned(),
+        text: "Hello".to_owned(),
+    };
+
+    diesel::insert_into(posts)
+        .values(&post)
+        .get_result(&connection)
+        .unwrae();
+
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();

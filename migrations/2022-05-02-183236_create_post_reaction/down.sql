@@ -1,1 +1,1 @@
-DROP TABLE post_reaction;
+DROP TABLE PostReaction;

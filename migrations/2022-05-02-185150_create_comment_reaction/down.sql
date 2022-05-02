@@ -1,1 +1,1 @@
-DROP TABLE comment_reaction;
+DROP TABLE CommentReaction;

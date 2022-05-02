@@ -1,8 +1,8 @@
-CREATE TABLE comment_reaction (
-    userID INT,
-    commentID INT,
+CREATE TABLE CommentReaction (
+    user_id INT,
+    comment_id INT,
     upvote BOOLEAN,
-    PRIMARY KEY (userID, commentID),
-    FOREIGN KEY (userID) REFERENCES users(userID),
-    FOREIGN KEY (commentID) REFERENCES post_comment(commentID)
+    PRIMARY KEY (user_id, comment_id),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id),
+    FOREIGN KEY (comment_id) REFERENCES PostComment(comment_id)
 );

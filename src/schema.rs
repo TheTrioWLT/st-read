@@ -1,88 +1,88 @@
 table! {
-    comment_reaction (userid, commentid) {
-        userid -> Int4,
-        commentid -> Int4,
+    commentreaction (user_id, comment_id) {
+        user_id -> Int4,
+        comment_id -> Int4,
         upvote -> Nullable<Bool>,
     }
 }
 
 table! {
-    post (postid) {
-        postid -> Int4,
-        dateposted -> Timestamp,
+    post (post_id) {
+        post_id -> Int4,
+        date_posted -> Timestamp,
         title -> Varchar,
         text -> Varchar,
     }
 }
 
 table! {
-    post_comment (commentid) {
-        commentid -> Int4,
+    postcomment (comment_id) {
+        comment_id -> Int4,
         text -> Varchar,
     }
 }
 
 table! {
-    post_comment_on (commentid, postid) {
-        commentid -> Int4,
-        postid -> Int4,
+    postcommenton (comment_id, post_id) {
+        comment_id -> Int4,
+        post_id -> Int4,
     }
 }
 
 table! {
-    post_comments (userid, commentid) {
-        userid -> Int4,
-        commentid -> Int4,
+    postcomments (user_id, comment_id) {
+        user_id -> Int4,
+        comment_id -> Int4,
     }
 }
 
 table! {
-    post_reaction (userid, postid) {
-        userid -> Int4,
-        postid -> Int4,
+    postreaction (user_id, post_id) {
+        user_id -> Int4,
+        post_id -> Int4,
         upvote -> Nullable<Bool>,
     }
 }
 
 table! {
-    posts (userid, postid) {
-        userid -> Int4,
-        postid -> Int4,
+    posts (user_id, post_id) {
+        user_id -> Int4,
+        post_id -> Int4,
     }
 }
 
 table! {
-    reply_to (parentcomment, childcomment) {
-        parentcomment -> Int4,
-        childcomment -> Int4,
+    replyto (parent_comment, child_comment) {
+        parent_comment -> Int4,
+        child_comment -> Int4,
     }
 }
 
 table! {
-    users (userid) {
-        userid -> Int4,
+    users (user_id) {
+        user_id -> Int4,
     }
 }
 
-joinable!(comment_reaction -> post_comment (commentid));
-joinable!(comment_reaction -> users (userid));
-joinable!(post_comment_on -> post (postid));
-joinable!(post_comment_on -> post_comment (commentid));
-joinable!(post_comments -> post_comment (commentid));
-joinable!(post_comments -> users (userid));
-joinable!(post_reaction -> post (postid));
-joinable!(post_reaction -> users (userid));
-joinable!(posts -> post (postid));
-joinable!(posts -> users (userid));
+joinable!(commentreaction -> postcomment (comment_id));
+joinable!(commentreaction -> users (user_id));
+joinable!(postcommenton -> post (post_id));
+joinable!(postcommenton -> postcomment (comment_id));
+joinable!(postcomments -> postcomment (comment_id));
+joinable!(postcomments -> users (user_id));
+joinable!(postreaction -> post (post_id));
+joinable!(postreaction -> users (user_id));
+joinable!(posts -> post (post_id));
+joinable!(posts -> users (user_id));
 
 allow_tables_to_appear_in_same_query!(
-    comment_reaction,
+    commentreaction,
     post,
-    post_comment,
-    post_comment_on,
-    post_comments,
-    post_reaction,
+    postcomment,
+    postcommenton,
+    postcomments,
+    postreaction,
     posts,
-    reply_to,
+    replyto,
     users,
 );

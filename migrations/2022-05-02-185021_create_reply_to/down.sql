@@ -1,1 +1,1 @@
-DROP TABLE reply_to;
+DROP TABLE ReplyTo;

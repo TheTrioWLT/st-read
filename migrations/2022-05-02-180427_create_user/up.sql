@@ -1,3 +1,3 @@
 CREATE TABLE users(
-    userID INT PRIMARY KEY NOT NULL
+    user_id INT PRIMARY KEY NOT NULL
 );

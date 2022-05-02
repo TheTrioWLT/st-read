@@ -1,1 +1,1 @@
-DROP TABLE post_comments;
+DROP TABLE PostComments;
