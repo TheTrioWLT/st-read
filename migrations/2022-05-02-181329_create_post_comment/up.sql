@@ -1,0 +1,4 @@
+CREATE TABLE post_comment (
+    commentID SERIAL PRIMARY KEY NOT NULL,
+    text VARCHAR(256) NOT NULL
+);
