@@ -1,0 +1,3 @@
+CREATE TABLE users(
+    user_id SERIAL UNIQUE PRIMARY KEY
+);
