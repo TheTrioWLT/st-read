@@ -13,7 +13,7 @@ pub struct User {
 use super::schema::post;
 
 #[derive(Queryable, Insertable, Debug)]
-#[table_name="post"]
+#[table_name = "post"]
 pub struct Post {
     pub post_id: i32,
     pub date_posted: SystemTime,
