@@ -5,11 +5,13 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{error::Error, io, time::Duration};
-use tui::{backend::CrosstermBackend, widgets::ListState, Terminal};
+use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
+mod create_post;
 mod list;
 mod posts_list;
+mod profile;
 mod viewing_post;
 
 fn main() -> Result<(), Box<dyn Error>> {

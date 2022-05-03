@@ -13,7 +13,9 @@ use tui::{
 };
 
 use crate::{
+    create_post::CreatePostFrame,
     posts_list::PostsListFrame,
+    profile::UserProfileFrame,
     viewing_post::{Comment, ViewingPostFrame},
 };
 
@@ -21,13 +23,13 @@ use crate::{
 pub enum AppView {
     Homepage,
     UserProfile,
+    CreatePost,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum SelectedFrame {
     Posts,
     ViewPost,
-    CreatePost,
 }
 
 #[derive(Debug, Clone)]
@@ -43,10 +45,12 @@ pub struct Post {
 /// This struct holds the current state of the app.
 pub struct App {
     pub page_title: PageTitle,
+    view: AppView,
     pub posts_frame: PostsListFrame,
-    pub view: AppView,
     pub selected_frame: SelectedFrame,
     pub viewing_frame: ViewingPostFrame,
+    pub profile_frame: UserProfileFrame,
+    pub create_frame: CreatePostFrame,
     pub quittable: bool,
 }
 
@@ -82,8 +86,26 @@ impl App {
             ]),
             viewing_frame: ViewingPostFrame::new(),
             view: AppView::Homepage,
+            create_frame: CreatePostFrame::new(),
             selected_frame: SelectedFrame::Posts,
+            profile_frame: UserProfileFrame::new(),
             quittable: true
+        }
+    }
+
+    pub fn set_view(&mut self, view: AppView) {
+        self.view = view;
+
+        match view {
+            AppView::Homepage => {
+                self.page_title.set_title("Homepage");
+            }
+            AppView::UserProfile => {
+                self.page_title.set_title("User Profile");
+            }
+            AppView::CreatePost => {
+                self.page_title.set_title("Creating Post");
+            }
         }
     }
 }
@@ -94,6 +116,7 @@ pub fn run_app<B: Backend>(
     tick_rate: Duration,
 ) -> io::Result<()> {
     let mut last_tick = Instant::now();
+
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
@@ -107,14 +130,21 @@ pub fn run_app<B: Backend>(
                     return Ok(());
                 }
 
-                match app.selected_frame {
-                    SelectedFrame::Posts => {
-                        PostsListFrame::handle_key(&mut app, key);
+                match app.view {
+                    AppView::Homepage => match app.selected_frame {
+                        SelectedFrame::Posts => {
+                            PostsListFrame::handle_key(&mut app, key);
+                        }
+                        SelectedFrame::ViewPost => {
+                            ViewingPostFrame::handle_key(&mut app, key);
+                        }
+                    },
+                    AppView::UserProfile => {
+                        UserProfileFrame::handle_key(&mut app, key);
                     }
-                    SelectedFrame::ViewPost => {
-                        ViewingPostFrame::handle_key(&mut app, key);
+                    AppView::CreatePost => {
+                        CreatePostFrame::handle_key(&mut app, key);
                     }
-                    SelectedFrame::CreatePost => unreachable!(),
                 }
             }
         }
@@ -127,27 +157,26 @@ pub fn run_app<B: Backend>(
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    // Create two chunks with equal horizontal screen space
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(7), Constraint::Percentage(93)].as_ref())
         .split(f.size());
 
-    let horizontal = if app.viewing_frame.has_post() {
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-            .split(vertical[1])
-    } else {
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(100)].as_ref())
-            .split(vertical[1])
-    };
-
     app.page_title.render(f, vertical[0]);
 
     if matches!(app.view, AppView::Homepage) {
+        // Create two chunks with equal horizontal screen space
+        let constraints = if app.viewing_frame.has_post() {
+            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()
+        } else {
+            [Constraint::Percentage(100)].as_ref()
+        };
+
+        let horizontal = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(constraints)
+            .split(vertical[1]);
+
         app.posts_frame.render(
             f,
             horizontal[0],
@@ -161,22 +190,25 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 matches!(app.selected_frame, SelectedFrame::ViewPost),
             );
         }
+    } else if matches!(app.view, AppView::UserProfile) {
+        app.profile_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::CreatePost) {
+        app.create_frame.render(f, vertical[1]);
     }
 }
 
 pub fn get_border_style(selected: bool, locked: bool) -> Style {
+    let style = Style::default();
+
     if selected {
         if locked {
-            Style::default()
-                .fg(Color::LightMagenta)
-                .add_modifier(Modifier::BOLD)
+            style.fg(Color::LightMagenta)
         } else {
-            Style::default()
-                .fg(Color::LightGreen)
-                .add_modifier(Modifier::BOLD)
+            style.fg(Color::LightGreen)
         }
+        .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Gray)
+        style.fg(Color::Gray)
     }
 }
 

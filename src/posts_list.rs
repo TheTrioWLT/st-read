@@ -14,6 +14,7 @@ use tui::Frame;
 
 use crate::app::get_border_style;
 use crate::app::App;
+use crate::app::AppView;
 use crate::app::Post;
 use crate::app::SelectedFrame;
 use crate::list::StatefulList;
@@ -49,6 +50,12 @@ impl PostsListFrame {
                 if app.viewing_frame.has_post() {
                     app.selected_frame = SelectedFrame::ViewPost;
                 }
+            }
+            KeyCode::Char('p') => {
+                app.set_view(AppView::UserProfile);
+            }
+            KeyCode::Char('c') => {
+                app.set_view(AppView::CreatePost);
             }
             _ => {}
         }
