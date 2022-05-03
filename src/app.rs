@@ -14,8 +14,11 @@ use tui::{
 
 use crate::{
     create_post::CreatePostFrame,
+    initial::InitialFrame,
+    login::LoginFrame,
     posts_list::PostsListFrame,
     profile::UserProfileFrame,
+    register::RegisterFrame,
     viewing_post::{Comment, ViewingPostFrame},
 };
 
@@ -24,6 +27,9 @@ pub enum AppView {
     Homepage,
     UserProfile,
     CreatePost,
+    Login,
+    Register,
+    Initial,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -51,13 +57,16 @@ pub struct App {
     pub viewing_frame: ViewingPostFrame,
     pub profile_frame: UserProfileFrame,
     pub create_frame: CreatePostFrame,
+    pub initial_frame: InitialFrame,
+    pub login_frame: LoginFrame,
+    pub register_frame: RegisterFrame,
     pub quittable: bool,
 }
 
 impl App {
     pub fn new() -> Self {
         App {
-            page_title: PageTitle::new("Homepage"),
+            page_title: PageTitle::new("Welcome to ST-Read"),
             posts_frame: PostsListFrame::with_items(vec![
                     Post {
                         title: "My New Cat",
@@ -85,10 +94,13 @@ impl App {
                     },
             ]),
             viewing_frame: ViewingPostFrame::new(),
-            view: AppView::Homepage,
+            view: AppView::Initial,
             create_frame: CreatePostFrame::new(),
             selected_frame: SelectedFrame::Posts,
             profile_frame: UserProfileFrame::new(),
+            initial_frame: InitialFrame::new(),
+            login_frame: LoginFrame::new(),
+            register_frame: RegisterFrame::new(),
             quittable: true
         }
     }
@@ -105,6 +117,15 @@ impl App {
             }
             AppView::CreatePost => {
                 self.page_title.set_title("Creating Post");
+            }
+            AppView::Initial => {
+                self.page_title.set_title("Welcome to ST-Read");
+            }
+            AppView::Login => {
+                self.page_title.set_title("Login");
+            }
+            AppView::Register => {
+                self.page_title.set_title("Register");
             }
         }
     }
@@ -144,6 +165,15 @@ pub fn run_app<B: Backend>(
                     }
                     AppView::CreatePost => {
                         CreatePostFrame::handle_key(&mut app, key);
+                    }
+                    AppView::Initial => {
+                        InitialFrame::handle_key(&mut app, key);
+                    }
+                    AppView::Login => {
+                        LoginFrame::handle_key(&mut app, key);
+                    }
+                    AppView::Register => {
+                        RegisterFrame::handle_key(&mut app, key);
                     }
                 }
             }
@@ -194,6 +224,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         app.profile_frame.render(f, vertical[1]);
     } else if matches!(app.view, AppView::CreatePost) {
         app.create_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::Initial) {
+        app.initial_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::Register) {
+        app.register_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::Login) {
+        app.login_frame.render(f, vertical[1]);
     }
 }
 

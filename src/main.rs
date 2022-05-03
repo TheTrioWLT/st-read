@@ -9,9 +9,12 @@ use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
 mod create_post;
+mod initial;
 mod list;
+mod login;
 mod posts_list;
 mod profile;
+mod register;
 mod viewing_post;
 
 fn main() -> Result<(), Box<dyn Error>> {
