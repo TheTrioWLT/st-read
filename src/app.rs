@@ -57,7 +57,8 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(email: String, password: String) -> Self {
+        let user = Self::authenticate(&email, password).unwrap();
         let posts = Self::load_posts();
         App {
             page_title: PageTitle::new("Homepage"),
@@ -67,7 +68,14 @@ impl App {
             create_frame: CreatePostFrame::new(),
             selected_frame: SelectedFrame::Posts,
             quittable: true,
-            profile_frame: UserProfileFrame::new(),
+            profile_frame: UserProfileFrame {
+                selected: crate::profile::SelectedOption::None,
+                dark_mode: user.dark_mode,
+                user_id: user.user_id,
+                email_notifications: user.email_notifications,
+                email,
+                name: user.name,
+            },
         }
     }
 
@@ -149,6 +157,27 @@ impl App {
                 }
             })
             .collect()
+    }
+
+    fn authenticate(email: &str, mut password: String) -> Result<User, ()> {
+        use st_read::schema::users::dsl as users_dsl;
+        use st_read::schema::users::dsl::email as email_dsl;
+        let connection = st_read::establish_connection();
+
+        let user: User = users_dsl::users
+            .filter(email_dsl.eq(&email))
+            .first(&connection)
+            .map_err(|e| panic!("{}", e))?;
+
+        let hash = st_read::util::hash(&password, &user.name);
+        let correct = user.password_hash.as_slice() == &hash;
+
+        //Don't keep passwords in memory even when string is dropped
+        zeroize::Zeroize::zeroize(&mut password);
+        match correct {
+            true => Ok(user),
+            false => Err(()),
+        }
     }
 
     pub fn set_view(&mut self, view: AppView) {

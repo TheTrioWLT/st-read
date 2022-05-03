@@ -141,11 +141,6 @@ INSERT INTO PostCommentOn
 INSERT INTO PostCommentOn
     (comment_id, post_id)
     VALUES
-    (6, 4);
-
-INSERT INTO PostCommentOn
-    (comment_id, post_id)
-    VALUES
     (7, 3);
 
 INSERT INTO PostCommentOn
@@ -157,6 +152,7 @@ INSERT INTO PostCommentOn
     (comment_id, post_id)
     VALUES
     (10, 3);
+
 
 -- ##############################  COMMENT REACTION  ##############################
 
@@ -245,7 +241,6 @@ INSERT INTO PostComments
     (9, 10);
 
 
-
 -- ##############################  POSTS  ##############################
 
 INSERT INTO posts (user_id, post_id) VALUES (1, 1);
@@ -276,6 +271,7 @@ INSERT INTO PostReaction
     VALUES
     (3, 4, true);
 
+
 -- ##############################  REPLY TO  ##############################
 
 INSERT INTO ReplyTo
@@ -292,4 +288,9 @@ INSERT INTO ReplyTo
     (parent_comment, child_comment)
     VALUES
     (8, 9);
+
+INSERT INTO ReplyTo 
+    (parent_comment, child_comment)
+    VALUES
+    (3, 6);
 

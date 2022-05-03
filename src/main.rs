@@ -60,7 +60,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // create app and run it
     let tick_rate = Duration::from_millis(250);
-    let app = App::new();
+    let app = App::new(
+        "troyneubauer@gmail.com".to_owned(),
+        "Troy Neubauer".to_owned(),
+    );
     let res = run_app(&mut terminal, app, tick_rate);
 
     // restore terminal
