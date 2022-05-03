@@ -274,9 +274,14 @@ impl PostButton {
             }
             KeyCode::Enter => {
                 app.create_frame.selected = SelectedBox::Title;
-                app.create_frame.text_box.clear();
-                app.create_frame.title_box.clear();
+                app.submit_post(
+                    &app.create_frame.title_box.text,
+                    &app.create_frame.text_box.text,
+                );
+                app.reload_posts();
                 app.set_view(AppView::Homepage);
+                app.create_frame.title_box.clear();
+                app.create_frame.text_box.clear();
             }
             _ => {}
         }

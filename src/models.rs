@@ -38,19 +38,22 @@ pub struct NewPost {
     pub text: String,
 }
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Insertable, Debug)]
+#[table_name = "posts"]
 pub struct Posts {
     pub user_id: i32,
     pub post_id: i32,
 }
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Insertable, Debug)]
+#[table_name = "postcomment"]
 pub struct PostComment {
     pub comment_id: i32,
     pub text: String,
 }
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Insertable, Debug)]
+#[table_name = "postcomments"]
 pub struct PostComments {
     pub user_id: i32,
     pub comment_id: i32,
@@ -62,7 +65,8 @@ pub struct PostCommentOn {
     pub post_id: i32,
 }
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Insertable, Debug)]
+#[table_name = "replyto"]
 pub struct ReplyTo {
     pub parent_comment: i32,
     pub child_comment: i32,
