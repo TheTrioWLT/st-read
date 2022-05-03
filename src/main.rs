@@ -36,6 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     std::panic::set_hook(Box::new(|i| {
         let ptr = TERMINAL.load(Ordering::SeqCst);
         if ptr.is_null() {
+            println!("{}", i);
             return;
         }
         //hope for the best from rustc...
