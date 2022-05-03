@@ -271,14 +271,9 @@ impl CommentBox {
         let mut spans = Vec::new();
 
         for comment in &self.comments {
-            spans.push(Spans::from(Span::styled(
-                comment.author.clone(),
-                Style::default().add_modifier(Modifier::BOLD),
-            )));
+            let mut comment_spans = Self::render_comment(comment, 0);
 
-            for line in comment.text.lines() {
-                spans.push(Spans::from(Span::raw(format!("   {}", line))));
-            }
+            spans.append(&mut comment_spans);
         }
 
         let comments = Paragraph::new(spans)
@@ -292,6 +287,37 @@ impl CommentBox {
             .wrap(tui::widgets::Wrap { trim: false });
 
         f.render_widget(comments, area);
+    }
+
+    fn render_comment(comment: &Comment, depth: usize) -> Vec<Spans> {
+        let mut spans = Vec::new();
+
+        let spaces = "   ";
+
+        let mut space_s = String::new();
+
+        for _ in 0..depth {
+            space_s.push_str(spaces);
+        }
+
+        spans.push(Spans::from(Span::styled(
+            format!("{}{}", space_s, comment.author),
+            Style::default().add_modifier(Modifier::BOLD),
+        )));
+
+        space_s.push_str(spaces);
+
+        for line in comment.text.lines() {
+            spans.push(Spans::from(Span::raw(format!("{}{}", space_s, line))));
+        }
+
+        for comment in comment.children.iter() {
+            let mut child_spans = Self::render_comment(comment, depth + 1);
+
+            spans.append(&mut child_spans);
+        }
+
+        spans
     }
 }
 
