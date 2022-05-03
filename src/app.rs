@@ -4,8 +4,10 @@ use std::{
 };
 
 use crossterm::event::{self, Event, KeyCode};
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use st_read::models::{PostComment, PostCommentOn, PostComments, Posts, User};
+use st_read::models::{NewPost, PostComment, PostCommentOn, PostComments, Posts, User};
+use st_read::models::{Post as DbPost, ReplyTo};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -79,8 +81,38 @@ impl App {
         }
     }
 
+    pub fn submit_post(&self, title: &str, text: &str) {
+        let connection = st_read::establish_connection();
+        use st_read::schema::post::dsl as post_dsl;
+        use st_read::schema::posts::dsl as posts_dsl;
+
+        let post = NewPost {
+            title: title.to_owned(),
+            text: text.to_owned(),
+        };
+
+        let post: DbPost = post
+            .insert_into(post_dsl::post)
+            .get_result(&connection)
+            .unwrap();
+
+        let author_id = self.profile_frame.user_id;
+        let posts = Posts {
+            user_id: author_id,
+            post_id: post.post_id,
+        };
+        posts
+            .insert_into(posts_dsl::posts)
+            .execute(&connection)
+            .unwrap();
+    }
+
+    pub fn reload_posts(&mut self) {
+        let posts = Self::load_posts();
+        self.posts_frame = PostsListFrame::with_items(posts);
+    }
+
     fn load_posts() -> Vec<Post> {
-        use st_read::models::Post as DbPost;
         use st_read::schema::post::dsl as post_dsl;
         use st_read::schema::postcomment::dsl as post_comment_dsl;
         use st_read::schema::postcomment::dsl::comment_id as post_comment_comment_id;
@@ -90,7 +122,6 @@ impl App {
         use st_read::schema::postcomments::dsl::comment_id as post_comments_comment_id;
         use st_read::schema::posts::dsl as posts_dsl;
         use st_read::schema::posts::dsl::post_id as post_id_dsl;
-        use st_read::schema::replyto::dsl as reply_to_dsl;
         use st_read::schema::users::dsl as users_dsl;
         use st_read::schema::users::dsl::user_id as user_id_dsl;
 
@@ -124,26 +155,62 @@ impl App {
                     .get_results(&connection)
                     .unwrap();
 
-                let comments = root_comments
+                fn transform_comment(id: i32) -> Comment {
+                    let connection = st_read::establish_connection();
+                    let post_comment: PostComment = post_comment_dsl::postcomment
+                        .filter(post_comment_comment_id.eq(id))
+                        .first(&connection)
+                        .unwrap();
+                    let comment: PostComments = post_comments_dsl::postcomments
+                        .filter(post_comments_comment_id.eq(id))
+                        .first(&connection)
+                        .unwrap();
+
+                    let comment_author: User = users_dsl::users
+                        .filter(user_id_dsl.eq(comment.user_id))
+                        .first(&connection)
+                        .unwrap_or_else(|e| panic!("Failed to find user id {}: {}", id, e));
+
+                    Comment::new(post_comment.text, &comment_author.name, vec![])
+                }
+
+                let comments: Vec<(_, _)> = root_comments
                     .into_iter()
                     .map(|base_comment| {
-                        let post_comment: PostComment = post_comment_dsl::postcomment
-                            .filter(post_comment_comment_id.eq(base_comment.comment_id))
-                            .first(&connection)
-                            .unwrap();
-                        let comment: PostComments = post_comments_dsl::postcomments
-                            .filter(post_comments_comment_id.eq(base_comment.comment_id))
-                            .first(&connection)
-                            .unwrap();
+                        (
+                            transform_comment(base_comment.comment_id),
+                            base_comment.comment_id,
+                        )
+                    })
+                    .collect();
 
-                        let comment_author: User = users_dsl::users
-                            .filter(user_id_dsl.eq(comment.user_id))
-                            .first(&connection)
-                            .unwrap_or_else(|e| {
-                                panic!("Failed to find user id {}: {}", author_id.user_id, e)
-                            });
+                fn load_recursive_comments(id: i32) -> Vec<Comment> {
+                    let connection = st_read::establish_connection();
+                    use st_read::schema::replyto::dsl as reply_to_dsl;
+                    use st_read::schema::replyto::parent_comment as reply_to_parent_comment_dsl;
 
-                        Comment::new(post_comment.text, &comment_author.name, vec![])
+                    let replies: Vec<ReplyTo> = reply_to_dsl::replyto
+                        .filter(reply_to_parent_comment_dsl.eq(id))
+                        .get_results(&connection)
+                        .unwrap();
+
+                    replies
+                        .into_iter()
+                        .map(|c| {
+                            let mut comment = transform_comment(c.child_comment);
+                            comment.children = load_recursive_comments(c.child_comment);
+                            comment
+                        })
+                        .collect()
+                }
+
+                let comments = comments
+                    .into_iter()
+                    .map(|(mut comment, id)| {
+                        let children = load_recursive_comments(id);
+                        comment.children = children;
+
+                        comment
                     })
                     .collect();
 
@@ -201,7 +268,7 @@ pub fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
     tick_rate: Duration,
-) -> io::Result<()> {
+) -> io::Result<App> {
     let mut last_tick = Instant::now();
 
     loop {
@@ -214,7 +281,7 @@ pub fn run_app<B: Backend>(
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
                 if app.quittable && matches!(key.code, KeyCode::Char('q')) {
-                    return Ok(());
+                    return Ok(app);
                 }
 
                 match app.view {

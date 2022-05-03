@@ -35,13 +35,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     TERMINAL.store(&mut terminal, Ordering::SeqCst);
 
+    // If we panic (basically throw an exception), reset the terminal to avoid issues
     std::panic::set_hook(Box::new(|i| {
         let ptr = TERMINAL.load(Ordering::SeqCst);
         if ptr.is_null() {
             println!("{}", i);
             return;
         }
-        //hope for the best from rustc...
+        // hope for the best from rustc...
+        // woo everyone loves undefined behavior!
         let term = unsafe { &mut *ptr };
 
         //Fix terminal!
@@ -75,8 +77,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
-    if let Err(err) = res {
-        println!("{:?}", err)
+    match res {
+        Err(err) => {
+            println!("{:?}", err)
+        }
+        Ok(app) => {
+            println!("{:#?}", app.posts_frame.posts.items);
+        }
     }
     TERMINAL.store(std::ptr::null_mut(), Ordering::SeqCst);
 
