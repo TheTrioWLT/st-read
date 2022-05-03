@@ -1,82 +1,93 @@
 table! {
-    CommentReaction (userID, commentID) {
-        userID -> Integer,
-        commentID -> Integer,
+    commentreaction (user_id, comment_id) {
+        user_id -> Int4,
+        comment_id -> Int4,
         upvote -> Nullable<Bool>,
     }
 }
 
 table! {
-    Post (postID) {
-        postID -> Integer,
-        datePosted -> Nullable<Datetime>,
-        title -> Nullable<Varchar>,
-        text -> Nullable<Varchar>,
+    post (post_id) {
+        post_id -> Int4,
+        date_posted -> Timestamp,
+        title -> Text,
+        text -> Text,
     }
 }
 
 table! {
-    PostComment (commentID) {
-        commentID -> Integer,
-        text -> Nullable<Varchar>,
+    postcomment (comment_id) {
+        comment_id -> Int4,
+        text -> Text,
     }
 }
 
 table! {
-    PostCommentOn (commentID, postID) {
-        commentID -> Integer,
-        postID -> Integer,
+    postcommenton (comment_id, post_id) {
+        comment_id -> Int4,
+        post_id -> Int4,
     }
 }
 
 table! {
-    PostComments (userID, commentID) {
-        userID -> Integer,
-        commentID -> Integer,
+    postcomments (user_id, comment_id) {
+        user_id -> Int4,
+        comment_id -> Int4,
     }
 }
 
 table! {
-    PostReaction (userID, postID) {
-        userID -> Integer,
-        postID -> Integer,
+    postreaction (user_id, post_id) {
+        user_id -> Int4,
+        post_id -> Int4,
         upvote -> Nullable<Bool>,
     }
 }
 
 table! {
-    Posts (userID, postID) {
-        userID -> Integer,
-        postID -> Integer,
+    posts (user_id, post_id) {
+        user_id -> Int4,
+        post_id -> Int4,
     }
 }
 
 table! {
-    ReplyTo (parentComment, childComment) {
-        parentComment -> Integer,
-        childComment -> Integer,
+    replyto (parent_comment, child_comment) {
+        parent_comment -> Int4,
+        child_comment -> Int4,
     }
 }
 
 table! {
-    User (userID) {
-        userID -> Integer,
+    users (user_id) {
+        user_id -> Int4,
         email -> Varchar,
         name -> Varchar,
-        passwordHash -> Varbinary,
-        darkMode -> Bool,
-        emailNotificationsEnabled -> Bool,
+        password_hash -> Bytea,
+        dark_mode -> Bool,
+        email_notifications_enabled -> Bool,
     }
 }
 
+joinable!(commentreaction -> postcomment (comment_id));
+joinable!(commentreaction -> users (user_id));
+joinable!(postcommenton -> post (post_id));
+joinable!(postcommenton -> postcomment (comment_id));
+joinable!(postcomments -> postcomment (comment_id));
+joinable!(postcomments -> users (user_id));
+joinable!(postreaction -> post (post_id));
+joinable!(postreaction -> users (user_id));
+joinable!(posts -> post (post_id));
+joinable!(posts -> users (user_id));
+
 allow_tables_to_appear_in_same_query!(
-    CommentReaction,
-    Post,
-    PostComment,
-    PostCommentOn,
-    PostComments,
-    PostReaction,
-    Posts,
-    ReplyTo,
-    User,
+    commentreaction,
+    post,
+    postcomment,
+    postcommenton,
+    postcomments,
+    postreaction,
+    posts,
+    replyto,
+    users,
 );

@@ -49,6 +49,7 @@ impl ViewingPostFrame {
     }
 
     pub fn view(&mut self, post: Post) {
+        self.comment_box.clear();
         for comment in &post.comments {
             self.comment_box.add_comment(comment.clone());
         }
@@ -191,13 +192,15 @@ impl ViewingPostFrame {
 pub struct Comment {
     pub text: String,
     pub author: String,
+    pub children: Vec<Comment>,
 }
 
 impl Comment {
-    pub fn new<S1: AsRef<str>, S2: AsRef<str>>(text: S1, author: S2) -> Self {
+    pub fn new(text: impl AsRef<str>, author: impl AsRef<str>, children: Vec<Comment>) -> Self {
         Self {
             text: String::from(text.as_ref()),
             author: String::from(author.as_ref()),
+            children,
         }
     }
 }

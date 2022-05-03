@@ -1,0 +1,9 @@
+TRUNCATE CommentReaction;
+TRUNCATE Post;
+TRUNCATE PostComment;
+TRUNCATE PostCommentOn;
+TRUNCATE PostComments;
+TRUNCATE PostReaction;
+TRUNCATE Posts;
+TRUNCATE ReplyTo;
+TRUNCATE Users;

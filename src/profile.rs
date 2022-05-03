@@ -9,27 +9,22 @@ use tui::layout::{Constraint, Direction, Layout, Rect};
 
 use crate::app::{App, AppView};
 
-enum SelectedOption {
+pub enum SelectedOption {
     DarkMode,
     EmailNotifications,
     None,
 }
 
 pub struct UserProfileFrame {
-    selected: SelectedOption,
-    dark_mode: bool,
-    email_notifications: bool,
+    pub selected: SelectedOption,
+    pub dark_mode: bool,
+    pub user_id: i32,
+    pub email_notifications: bool,
+    pub email: String,
+    pub name: String,
 }
 
 impl UserProfileFrame {
-    pub fn new() -> Self {
-        Self {
-            selected: SelectedOption::None,
-            dark_mode: true,
-            email_notifications: false,
-        }
-    }
-
     pub fn handle_key(app: &mut App, key: KeyEvent) {
         match key.code {
             KeyCode::Esc => {
@@ -116,17 +111,17 @@ impl UserProfileFrame {
 
         f.render_widget(main, area);
 
-        let user_name = Paragraph::new(Spans::from(Span::styled(
-            "username",
+        let name = Paragraph::new(Spans::from(Span::styled(
+            &self.name,
             Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD),
         )));
 
-        f.render_widget(user_name, user_name_row);
+        f.render_widget(name, user_name_row);
 
         let email = Paragraph::new(Spans::from(Span::styled(
-            "email@website.com",
+            &self.email,
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),

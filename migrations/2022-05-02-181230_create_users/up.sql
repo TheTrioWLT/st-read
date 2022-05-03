@@ -1,0 +1,8 @@
+CREATE TABLE Users (
+	user_id SERIAL UNIQUE PRIMARY KEY,
+	email VARCHAR(40) NOT NULL UNIQUE,
+	name VARCHAR(40) NOT NULL,
+	password_hash BYTEA NOT NULL,
+	dark_mode BOOLEAN NOT NULL DEFAULT TRUE,
+	email_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE
+);

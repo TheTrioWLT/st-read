@@ -4,6 +4,8 @@ use std::{
 };
 
 use crossterm::event::{self, Event, KeyCode};
+use diesel::prelude::*;
+use st_read::models::{PostComment, PostCommentOn, PostComments, Posts, User};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -40,11 +42,11 @@ pub enum SelectedFrame {
 
 #[derive(Debug, Clone)]
 pub struct Post {
-    pub title: &'static str,
-    pub short: &'static str,
-    pub stats: &'static str,
-    pub author: &'static str,
-    pub full: &'static str,
+    pub title: String,
+    pub short: String,
+    pub stats: String,
+    pub author: String,
+    pub full: String,
     pub comments: Vec<Comment>,
 }
 
@@ -64,44 +66,128 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(email: String, password: String) -> Self {
+        let user = Self::authenticate(&email, password).unwrap();
+        let posts = Self::load_posts();
         App {
             page_title: PageTitle::new("Welcome to ST-Read"),
-            posts_frame: PostsListFrame::with_items(vec![
-                    Post {
-                        title: "My New Cat",
-                        short: "I just purchased a new cat named Fluffy ...",
-                        stats: "33 Comments, 152 Upvotes",
-                        author: "Troy Neubauer",
-                        full: "",
-                        comments: Vec::new()
-                    },
-                    Post {
-                        title: "Why I hate Windows",
-                        short: "I've had enough with Windows ...",
-                        stats: "91 Comments, 0 Upvotes",
-                        author: "Luke Newcomb",
-                        full: "I have had enough with Windows. Today my machine auto-updated to Windows 11! Deleting my entire Linux partition in the process.",
-                        comments: vec![Comment::new("As deserved for a Linux user lmao. \"I use Arch BTW.\" Get out of here.", "Jeremiah Webb")]
-                    },
-                    Post {
-                        title: "Hello ST-Read",
-                        short: "Hello ST-read. Welcome to our new site! ...",
-                        stats: "12 Comments, 4 Upvotes",
-                        author: "Troy Neubauer",
-                        full: "",
-                        comments: Vec::new()
-                    },
-            ]),
+            posts_frame: PostsListFrame::with_items(posts),
             viewing_frame: ViewingPostFrame::new(),
             view: AppView::Initial,
             create_frame: CreatePostFrame::new(),
             selected_frame: SelectedFrame::Posts,
-            profile_frame: UserProfileFrame::new(),
             initial_frame: InitialFrame::new(),
             login_frame: LoginFrame::new(),
             register_frame: RegisterFrame::new(),
-            quittable: true
+            quittable: true,
+            profile_frame: UserProfileFrame {
+                selected: crate::profile::SelectedOption::None,
+                dark_mode: user.dark_mode,
+                user_id: user.user_id,
+                email_notifications: user.email_notifications,
+                email,
+                name: user.name,
+            },
+        }
+    }
+
+    fn load_posts() -> Vec<Post> {
+        use st_read::models::Post as DbPost;
+        use st_read::schema::post::dsl as post_dsl;
+        use st_read::schema::postcomment::dsl as post_comment_dsl;
+        use st_read::schema::postcomment::dsl::comment_id as post_comment_comment_id;
+        use st_read::schema::postcommenton::dsl as post_comment_on_dsl;
+        use st_read::schema::postcommenton::post_id as post_comment_on_id;
+        use st_read::schema::postcomments::dsl as post_comments_dsl;
+        use st_read::schema::postcomments::dsl::comment_id as post_comments_comment_id;
+        use st_read::schema::posts::dsl as posts_dsl;
+        use st_read::schema::posts::dsl::post_id as post_id_dsl;
+        use st_read::schema::users::dsl as users_dsl;
+        use st_read::schema::users::dsl::user_id as user_id_dsl;
+
+        let connection = st_read::establish_connection();
+        let posts = post_dsl::post.get_results::<DbPost>(&connection).unwrap();
+
+        posts
+            .into_iter()
+            .map(|p| {
+                let mut short = p.text[..16.min(p.text.len())].to_owned();
+                short.push_str(" ...");
+                let stats = "STATS TODO".to_owned();
+                let author_id = posts_dsl::posts
+                    .filter(post_id_dsl.eq(p.post_id))
+                    .first::<Posts>(&connection)
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to load author with post id {}: {}", p.post_id, e)
+                    });
+
+                let author: User = users_dsl::users
+                    .filter(user_id_dsl.eq(author_id.user_id))
+                    .first(&connection)
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to find user id {}: {}", author_id.user_id, e)
+                    });
+
+                let author = author.name.clone();
+
+                let root_comments: Vec<PostCommentOn> = post_comment_on_dsl::postcommenton
+                    .filter(post_comment_on_id.eq(p.post_id))
+                    .get_results(&connection)
+                    .unwrap();
+
+                let comments = root_comments
+                    .into_iter()
+                    .map(|base_comment| {
+                        let post_comment: PostComment = post_comment_dsl::postcomment
+                            .filter(post_comment_comment_id.eq(base_comment.comment_id))
+                            .first(&connection)
+                            .unwrap();
+                        let comment: PostComments = post_comments_dsl::postcomments
+                            .filter(post_comments_comment_id.eq(base_comment.comment_id))
+                            .first(&connection)
+                            .unwrap();
+
+                        let comment_author: User = users_dsl::users
+                            .filter(user_id_dsl.eq(comment.user_id))
+                            .first(&connection)
+                            .unwrap_or_else(|e| {
+                                panic!("Failed to find user id {}: {}", author_id.user_id, e)
+                            });
+
+                        Comment::new(post_comment.text, &comment_author.name, vec![])
+                    })
+                    .collect();
+
+                Post {
+                    title: p.title,
+                    short,
+                    stats,
+                    author,
+                    full: p.text,
+                    comments,
+                }
+            })
+            .collect()
+    }
+
+    fn authenticate(email: &str, mut password: String) -> Result<User, ()> {
+        use st_read::schema::users::dsl as users_dsl;
+        use st_read::schema::users::dsl::email as email_dsl;
+        let connection = st_read::establish_connection();
+
+        let user: User = users_dsl::users
+            .filter(email_dsl.eq(&email))
+            .first(&connection)
+            .map_err(|e| panic!("{}", e))?;
+
+        let hash = st_read::util::hash(&password, &user.name);
+        let correct = user.password_hash.as_slice() == &hash;
+
+        //Don't keep passwords in memory even when string is dropped
+        zeroize::Zeroize::zeroize(&mut password);
+        match correct {
+            true => Ok(user),
+            false => Err(()),
         }
     }
 
