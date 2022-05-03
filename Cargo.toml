@@ -3,8 +3,14 @@ name = "st-read"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+panic = "abort"
+
 [dependencies]
 diesel = { version = "1.4.4", features = ["postgres"] }
 dotenv = "0.15.0"
 tui = "0.17.0"
 crossterm = "0.23.2"
+rust-crypto = "0.2.36"
+base64 = "0.13.0"
+zeroize = "1.5.5"

@@ -4,262 +4,467 @@ use std::{
 };
 
 use crossterm::event::{self, Event, KeyCode};
+use diesel::pg::PgConnection;
+use diesel::prelude::*;
+use st_read::models::{
+    NewPost, PostComment, PostCommentOn, PostComments, PostReaction, Posts, User,
+};
+use st_read::models::{Post as DbPost, ReplyTo, User as DbUser};
 use tui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
     Frame, Terminal,
 };
 
-use crate::StatefulList;
+use crate::{
+    create_post::CreatePostFrame,
+    initial::InitialFrame,
+    login::LoginFrame,
+    posts_list::PostsListFrame,
+    profile::UserProfileFrame,
+    register::RegisterFrame,
+    viewing_post::{Comment, ViewingPostFrame},
+};
 
 #[derive(Debug, Clone, Copy)]
-enum AppView {
+pub enum AppView {
     Homepage,
     UserProfile,
+    CreatePost,
+    Login,
+    Register,
+    Initial,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SelectedFrame {
+    Posts,
+    ViewPost,
+}
+
+#[derive(Debug, Clone)]
+pub struct Post {
+    pub title: String,
+    pub short: String,
+    pub stats: String,
+    pub author: String,
+    pub full: String,
+    pub comments: Vec<Comment>,
 }
 
 /// This struct holds the current state of the app.
-pub struct App<'a> {
-    posts: StatefulList<(
-        &'a str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-    )>,
-    viewing_post: Option<(
-        &'a str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-        &'static str,
-    )>,
-    current_view: AppView,
+pub struct App {
+    pub page_title: PageTitle,
+    view: AppView,
+    pub posts_frame: PostsListFrame,
+    pub selected_frame: SelectedFrame,
+    pub viewing_frame: ViewingPostFrame,
+    pub profile_frame: UserProfileFrame,
+    pub create_frame: CreatePostFrame,
+    pub initial_frame: InitialFrame,
+    pub login_frame: LoginFrame,
+    pub register_frame: RegisterFrame,
+    pub quittable: bool,
 }
 
-impl<'a> App<'a> {
-    pub fn new() -> App<'a> {
+impl App {
+    pub fn new() -> Self {
+        let posts = Self::load_posts();
         App {
-            posts: StatefulList::with_items(vec![
-                (
-                    "My New Cat",
-                    "I just purchased a new cat named Fluffy ...",
-                    "33 Comments, 152 Upvotes",
-                    "Troy Neubauer",
-                    "",
-                    "",
-                    ""
-                ),
-                (
-                    "Why I hate Windows",
-                    "I've had enough with Windows ...",
-                    "91 Comments, 0 Upvotes",
-                    "Luke Newcomb",
-                    "I have had enough with Windows. Today my machine auto-updated to Windows 11! Deleting my entire Linux partition in the process.",
-                    "As deserved for a Linux user lmao. \"I use Arch BTW.\" Get out of here.",
-                    "Jeremiah Webb"
-                ),
-                (
-                    "Hello ST-Read",
-                    "Hello ST-read. Welcome to our new site! ...",
-                    "12 Comments, 4 Upvotes",
-                    "Troy Neubauer",
-                    "",
-                    "",
-                    ""
-                ),
-            ]),
-            viewing_post: None,
-            current_view: AppView::Homepage
+            page_title: PageTitle::new("Welcome to ST-Read"),
+            posts_frame: PostsListFrame::with_items(posts),
+            viewing_frame: ViewingPostFrame::new(),
+            view: AppView::Initial,
+            create_frame: CreatePostFrame::new(),
+            selected_frame: SelectedFrame::Posts,
+            initial_frame: InitialFrame::new(),
+            login_frame: LoginFrame::new(),
+            register_frame: RegisterFrame::new(),
+            quittable: true,
+            profile_frame: UserProfileFrame {
+                selected: crate::profile::SelectedOption::None,
+                dark_mode: false,
+                user_id: 0,
+                email_notifications: false,
+                email: String::new(),
+                name: String::new(),
+            },
         }
     }
 
-    // /// Rotate through the event list.
-    // /// This only exists to simulate some kind of "progress"
-    // fn on_tick(&mut self) {
-    //     let event = self.events.remove(0);
-    //     self.events.push(event);
-    // }
+    pub fn login(&mut self, email: &str, password: String) -> Result<(), ()> {
+        let user = Self::authenticate(&email, password)?;
+        self.set_user(user);
+        Ok(())
+    }
+
+    pub fn submit_post(&self, title: &str, text: &str) {
+        let connection = st_read::establish_connection();
+        use st_read::schema::post::dsl as post_dsl;
+        use st_read::schema::posts::dsl as posts_dsl;
+
+        let post = NewPost {
+            title: title.to_owned(),
+            text: text.to_owned(),
+        };
+
+        let post: DbPost = post
+            .insert_into(post_dsl::post)
+            .get_result(&connection)
+            .unwrap();
+
+        let author_id = self.profile_frame.user_id;
+        let posts = Posts {
+            user_id: author_id,
+            post_id: post.post_id,
+        };
+        posts
+            .insert_into(posts_dsl::posts)
+            .execute(&connection)
+            .unwrap();
+    }
+
+    pub fn reload_posts(&mut self) {
+        let posts = Self::load_posts();
+        self.posts_frame = PostsListFrame::with_items(posts);
+    }
+
+    fn load_posts() -> Vec<Post> {
+        use st_read::schema::post::dsl as post_dsl;
+        use st_read::schema::postcomment::dsl as post_comment_dsl;
+        use st_read::schema::postcomment::dsl::comment_id as post_comment_comment_id;
+        use st_read::schema::postcommenton::dsl as post_comment_on_dsl;
+        use st_read::schema::postcommenton::post_id as post_comment_on_id;
+        use st_read::schema::postcomments::dsl as post_comments_dsl;
+        use st_read::schema::postcomments::dsl::comment_id as post_comments_comment_id;
+        use st_read::schema::postreaction::dsl as post_reaction_dsl;
+        use st_read::schema::postreaction::dsl::post_id as post_reaction_post_id_dsl;
+        use st_read::schema::posts::dsl as posts_dsl;
+        use st_read::schema::posts::dsl::post_id as post_id_dsl;
+        use st_read::schema::users::dsl as users_dsl;
+        use st_read::schema::users::dsl::user_id as user_id_dsl;
+
+        let connection = st_read::establish_connection();
+        let posts = post_dsl::post.get_results::<DbPost>(&connection).unwrap();
+
+        posts
+            .into_iter()
+            .map(|p| {
+                let mut short = p.text[..16.min(p.text.len())].to_owned();
+                short.push_str(" ...");
+                let author_id = posts_dsl::posts
+                    .filter(post_id_dsl.eq(p.post_id))
+                    .first::<Posts>(&connection)
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to load author with post id {}: {}", p.post_id, e)
+                    });
+
+                let author: User = users_dsl::users
+                    .filter(user_id_dsl.eq(author_id.user_id))
+                    .first(&connection)
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to find user id {}: {}", author_id.user_id, e)
+                    });
+
+                let author = author.name.clone();
+
+                let root_comments: Vec<PostCommentOn> = post_comment_on_dsl::postcommenton
+                    .filter(post_comment_on_id.eq(p.post_id))
+                    .get_results(&connection)
+                    .unwrap();
+
+                fn transform_comment(id: i32) -> Comment {
+                    let connection = st_read::establish_connection();
+                    let post_comment: PostComment = post_comment_dsl::postcomment
+                        .filter(post_comment_comment_id.eq(id))
+                        .first(&connection)
+                        .unwrap();
+                    let comment: PostComments = post_comments_dsl::postcomments
+                        .filter(post_comments_comment_id.eq(id))
+                        .first(&connection)
+                        .unwrap();
+
+                    let comment_author: User = users_dsl::users
+                        .filter(user_id_dsl.eq(comment.user_id))
+                        .first(&connection)
+                        .unwrap_or_else(|e| panic!("Failed to find user id {}: {}", id, e));
+
+                    Comment::new(post_comment.text, &comment_author.name, vec![])
+                }
+
+                let comments: Vec<(_, _)> = root_comments
+                    .into_iter()
+                    .map(|base_comment| {
+                        (
+                            transform_comment(base_comment.comment_id),
+                            base_comment.comment_id,
+                        )
+                    })
+                    .collect();
+
+                fn load_recursive_comments(id: i32) -> Vec<Comment> {
+                    let connection = st_read::establish_connection();
+                    use st_read::schema::replyto::dsl as reply_to_dsl;
+                    use st_read::schema::replyto::parent_comment as reply_to_parent_comment_dsl;
+
+                    let replies: Vec<ReplyTo> = reply_to_dsl::replyto
+                        .filter(reply_to_parent_comment_dsl.eq(id))
+                        .get_results(&connection)
+                        .unwrap();
+
+                    replies
+                        .into_iter()
+                        .map(|c| {
+                            let mut comment = transform_comment(c.child_comment);
+                            comment.children = load_recursive_comments(c.child_comment);
+                            comment
+                        })
+                        .collect()
+                }
+
+                let comments = comments
+                    .into_iter()
+                    .map(|(mut comment, id)| {
+                        let children = load_recursive_comments(id);
+                        comment.children = children;
+
+                        comment
+                    })
+                    .collect();
+
+                let mut comment_num = 0;
+                fn count_comments(comment: &Comment, comment_num: &mut usize) {
+                    *comment_num += 1;
+                    for comment in &comment.children {
+                        count_comments(comment, comment_num)
+                    }
+                }
+                for comment in &comments {
+                    count_comments(comment, &mut comment_num)
+                }
+
+                let upvotes: Vec<PostReaction> = post_reaction_dsl::postreaction
+                    .filter(post_reaction_post_id_dsl.eq(p.post_id))
+                    .get_results(&connection)
+                    .unwrap();
+
+                let stats = format!("{comment_num} comments, {} upvotes", upvotes.len());
+
+                Post {
+                    title: p.title,
+                    short,
+                    stats,
+                    author,
+                    full: p.text,
+                    comments,
+                }
+            })
+            .collect()
+    }
+
+    fn authenticate(email: &str, mut password: String) -> Result<User, ()> {
+        use st_read::schema::users::dsl as users_dsl;
+        use st_read::schema::users::dsl::email as email_dsl;
+        let connection = st_read::establish_connection();
+
+        let user: User = users_dsl::users
+            .filter(email_dsl.eq(&email))
+            .first(&connection)
+            .map_err(|_| ())?;
+
+        let hash = st_read::util::hash(&password, &user.name);
+        let correct = user.password_hash.as_slice() == &hash;
+
+        //Don't keep passwords in memory even when string is dropped
+        zeroize::Zeroize::zeroize(&mut password);
+        match correct {
+            true => Ok(user),
+            false => Err(()),
+        }
+    }
+
+    pub fn set_user(&mut self, user: DbUser) {
+        self.profile_frame.dark_mode = user.dark_mode;
+        self.profile_frame.user_id = user.user_id;
+        self.profile_frame.name = user.name;
+        self.profile_frame.email = user.email;
+        self.profile_frame.email_notifications = user.email_notifications;
+    }
+
+    pub fn set_view(&mut self, view: AppView) {
+        self.view = view;
+
+        match view {
+            AppView::Homepage => {
+                self.page_title.set_title("Homepage");
+            }
+            AppView::UserProfile => {
+                self.page_title.set_title("User Profile");
+            }
+            AppView::CreatePost => {
+                self.page_title.set_title("Creating Post");
+            }
+            AppView::Initial => {
+                self.page_title.set_title("Welcome to ST-Read");
+            }
+            AppView::Login => {
+                self.page_title.set_title("Login");
+            }
+            AppView::Register => {
+                self.page_title.set_title("Register");
+            }
+        }
+    }
 }
 
 pub fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
     tick_rate: Duration,
-) -> io::Result<()> {
+) -> io::Result<App> {
     let mut last_tick = Instant::now();
+
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
+
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Left => app.posts.unselect(),
-                    KeyCode::Down => app.posts.next(),
-                    KeyCode::Char('j') => app.posts.next(),
-                    KeyCode::Up => app.posts.previous(),
-                    KeyCode::Char('k') => app.posts.previous(),
-                    KeyCode::Right => {
-                        let selected = app.posts.selected();
-                        app.viewing_post = selected.map(|s| *s);
+                if app.quittable && matches!(key.code, KeyCode::Char('q')) {
+                    return Ok(app);
+                }
+
+                match app.view {
+                    AppView::Homepage => match app.selected_frame {
+                        SelectedFrame::Posts => {
+                            PostsListFrame::handle_key(&mut app, key);
+                        }
+                        SelectedFrame::ViewPost => {
+                            ViewingPostFrame::handle_key(&mut app, key);
+                        }
+                    },
+                    AppView::UserProfile => {
+                        UserProfileFrame::handle_key(&mut app, key);
                     }
-                    _ => {}
+                    AppView::CreatePost => {
+                        CreatePostFrame::handle_key(&mut app, key);
+                    }
+                    AppView::Initial => {
+                        InitialFrame::handle_key(&mut app, key);
+                    }
+                    AppView::Login => {
+                        LoginFrame::handle_key(&mut app, key);
+                    }
+                    AppView::Register => {
+                        RegisterFrame::handle_key(&mut app, key);
+                    }
                 }
             }
         }
 
-        /*
         if last_tick.elapsed() >= tick_rate {
-            app.on_tick();
+            // app.on_tick();
             last_tick = Instant::now();
         }
-        */
     }
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    // Create two chunks with equal horizontal screen space
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(7), Constraint::Percentage(93)].as_ref())
         .split(f.size());
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(vertical[1]);
 
-    let posts: Vec<ListItem> = app
-        .posts
-        .items
-        .iter()
-        .map(|i| {
-            let mut lines = Vec::new();
+    app.page_title.render(f, vertical[0]);
 
-            lines.push(Spans::from(Span::styled(i.0, Style::default())));
-            lines.push(Spans::from(Span::styled(
-                format!("{}", i.1),
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
-            lines.push(Spans::from(Span::styled(
-                "",
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
-            lines.push(Spans::from(Span::styled(
-                i.2,
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
-            lines.push(Spans::from(Span::styled(
-                format!("by {}", i.3),
-                Style::default().add_modifier(Modifier::ITALIC),
-            )));
+    if matches!(app.view, AppView::Homepage) {
+        // Create two chunks with equal horizontal screen space
+        let constraints = if app.viewing_frame.has_post() {
+            [Constraint::Percentage(50), Constraint::Percentage(50)].as_ref()
+        } else {
+            [Constraint::Percentage(100)].as_ref()
+        };
 
-            ListItem::new(lines).style(Style::default().fg(Color::Gray))
-        })
-        .collect();
+        let horizontal = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(constraints)
+            .split(vertical[1]);
 
-    // Create a List from all posts and highlight the currently selected one
-    let posts = List::new(posts)
-        .block(Block::default().borders(Borders::ALL).title("Posts"))
-        .highlight_style(
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol(">> ");
-
-    if let Some(vp) = app.posts.selected() {
-        let mut text = Vec::new();
-
-        let text_strs = format!(
-            "{}\nby {}\n\n{}\n\nTop Comments\n{}\n- {}",
-            vp.0, vp.3, vp.4, vp.5, vp.6
+        app.posts_frame.render(
+            f,
+            horizontal[0],
+            matches!(app.selected_frame, SelectedFrame::Posts),
         );
 
-        for line in text_strs.split('\n') {
-            text.push(Spans::from(vec![Span::raw(line)]));
+        if app.viewing_frame.has_post() {
+            app.viewing_frame.render(
+                f,
+                horizontal[1],
+                matches!(app.selected_frame, SelectedFrame::ViewPost),
+            );
         }
+    } else if matches!(app.view, AppView::UserProfile) {
+        app.profile_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::CreatePost) {
+        app.create_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::Initial) {
+        app.initial_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::Register) {
+        app.register_frame.render(f, vertical[1]);
+    } else if matches!(app.view, AppView::Login) {
+        app.login_frame.render(f, vertical[1]);
+    }
+}
 
-        let post = Paragraph::new(text)
+pub fn get_border_style(selected: bool, locked: bool) -> Style {
+    let style = Style::default();
+
+    if selected {
+        if locked {
+            style.fg(Color::LightMagenta)
+        } else {
+            style.fg(Color::LightGreen)
+        }
+        .add_modifier(Modifier::BOLD)
+    } else {
+        style.fg(Color::Gray)
+    }
+}
+
+pub struct PageTitle {
+    pub title: String,
+}
+
+impl PageTitle {
+    pub fn new(title: impl AsRef<str>) -> Self {
+        Self {
+            title: String::from(title.as_ref()),
+        }
+    }
+
+    pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        let page_title_block = Paragraph::new(self.title.clone())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title("Viewing Post:"),
+                    .border_style(Style::default().fg(Color::LightCyan)),
             )
-            .style(Style::default().fg(Color::Gray))
+            .style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )
             .wrap(tui::widgets::Wrap { trim: false });
 
-        if matches!(app.current_view, AppView::Homepage) {
-            f.render_widget(post, chunks[1]);
-        }
+        f.render_widget(page_title_block, area);
     }
 
-    if matches!(app.current_view, AppView::Homepage) {
-        // We can now render the posts list
-        f.render_stateful_widget(posts, chunks[0], &mut app.posts.state);
+    pub fn set_title(&mut self, title: impl AsRef<str>) {
+        self.title = String::from(title.as_ref());
     }
-
-    let page_title_block = Paragraph::new("Homepage")
-        .block(Block::default().borders(Borders::ALL))
-        .style(Style::default().fg(Color::Gray))
-        .wrap(tui::widgets::Wrap { trim: false });
-
-    f.render_widget(page_title_block, vertical[0]);
-
-    /*
-    // Let's do the same for the events.
-    // The event list doesn't have any state and only displays the current state of the list.
-    let events: Vec<ListItem> = app
-        .events
-        .iter()
-        .rev()
-        .map(|&(event, level)| {
-            // Colorcode the level depending on its type
-            let s = match level {
-                "CRITICAL" => Style::default().fg(Color::Red),
-                "ERROR" => Style::default().fg(Color::Magenta),
-                "WARNING" => Style::default().fg(Color::Yellow),
-                "INFO" => Style::default().fg(Color::Blue),
-                _ => Style::default(),
-            };
-            // Add a example datetime and apply proper spacing between them
-            let header = Spans::from(vec![
-                Span::styled(format!("{:<9}", level), s),
-                Span::raw(" "),
-                Span::styled(
-                    "2020-01-01 10:00:00",
-                    Style::default().add_modifier(Modifier::ITALIC),
-                ),
-            ]);
-            // The event gets its own line
-            let log = Spans::from(vec![Span::raw(event)]);
-
-            // Here several things happen:
-            // 1. Add a `---` spacing line above the final list entry
-            // 2. Add the Level + datetime
-            // 3. Add a spacer line
-            // 4. Add the actual event
-            ListItem::new(vec![
-                Spans::from("-".repeat(chunks[1].width as usize)),
-                header,
-                Spans::from(""),
-                log,
-            ])
-        })
-        .collect();
-    let events_list = List::new(events)
-        .block(Block::default().borders(Borders::ALL).title("List"))
-        .start_corner(Corner::BottomLeft);
-    f.render_widget(events_list, chunks[1]);
-    */
 }

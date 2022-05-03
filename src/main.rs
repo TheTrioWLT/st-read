@@ -4,95 +4,31 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, io, time::Duration};
-use tui::{
-    backend::{Backend, CrosstermBackend},
-    widgets::ListState,
-    Terminal,
+use std::{error::Error, panic::PanicInfo, sync::atomic::AtomicPtr, time::Duration};
+use std::{
+    io::{self, Stdout},
+    sync::atomic::Ordering,
 };
+use tui::{backend::CrosstermBackend, widgets::ListState, Terminal};
 
 mod app;
+mod create_post;
+mod initial;
+mod list;
+mod login;
+mod posts_list;
+mod profile;
+mod register;
+mod viewing_post;
 
-struct StatefulList<T> {
-    state: ListState,
-    items: Vec<T>,
-}
+//use diesel::prelude::*;
 
-impl<T> StatefulList<T> {
-    fn with_items(items: Vec<T>) -> StatefulList<T> {
-        StatefulList {
-            state: ListState::default(),
-            items,
-        }
-    }
-
-    fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.items.len() - 1 {
-                    i
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    0
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    fn selected(&self) -> Option<&T> {
-        let i = self.state.selected()?;
-        self.items.get(i)
-    }
-
-    fn unselect(&mut self) {
-        self.state.select(None);
-    }
-}
-
-use diesel::prelude::*;
-use st_read;
+static TERMINAL: AtomicPtr<Terminal<CrosstermBackend<Stdout>>> =
+    AtomicPtr::new(std::ptr::null_mut());
 
 fn main() -> Result<(), Box<dyn Error>> {
-    use st_read::models::Post;
-    use st_read::schema::post::dsl as post_dsl;
-
-    let connection = st_read::establish_connection();
-    let mut new_post_id = 0;
-    if let Ok(posts) = post_dsl::post.get_results::<Post>(&connection) {
-        new_post_id = posts.len() as i32;
-        for post in posts {
-            println!("{}", post.title);
-            println!("----------\n");
-            println!("{}", post.text);
-        }
-    }
-
-    let post = Post {
-        post_id: new_post_id,
-        date_posted: std::time::SystemTime::now(),
-        title: "My first post".to_owned(),
-        text: "Hello".to_owned(),
-    };
-
-    diesel::insert_into(post_dsl::post)
-        .values(post)
-        .execute(&connection)
-        .unwrap();
+    // set vars from the `.env` file
+    dotenv::dotenv().ok();
 
     // setup terminal
     enable_raw_mode()?;
@@ -100,6 +36,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    TERMINAL.store(&mut terminal, Ordering::SeqCst);
+
+    // If we panic (basically throw an exception), reset the terminal to avoid issues
+    std::panic::set_hook(Box::new(|i| {
+        let ptr = TERMINAL.load(Ordering::SeqCst);
+        if ptr.is_null() {
+            println!("{}", i);
+            return;
+        }
+        // hope for the best from rustc...
+        // woo everyone loves undefined behavior!
+        let term = unsafe { &mut *ptr };
+
+        //Fix terminal!
+        disable_raw_mode().unwrap();
+        execute!(
+            term.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )
+        .unwrap();
+        term.show_cursor().unwrap();
+        println!("{}", i);
+
+        std::process::exit(1)
+    }));
 
     // create app and run it
     let tick_rate = Duration::from_millis(250);
@@ -115,9 +77,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
-    if let Err(err) = res {
-        println!("{:?}", err)
+    match res {
+        Err(err) => {
+            println!("{:?}", err)
+        }
+        Ok(_app) => {
+            //println!("{:#?}", app.posts_frame.posts.items);
+        }
     }
+    TERMINAL.store(std::ptr::null_mut(), Ordering::SeqCst);
 
     Ok(())
 }
