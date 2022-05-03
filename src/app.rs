@@ -28,6 +28,7 @@ use crate::{
     viewing_post::{Comment, ViewingPostFrame},
 };
 
+/// The possible pages the user can navigate to
 #[derive(Debug, Clone, Copy)]
 pub enum AppView {
     Homepage,
@@ -38,12 +39,14 @@ pub enum AppView {
     Initial,
 }
 
+/// homepage left / right selection
 #[derive(Debug, Clone, Copy)]
 pub enum SelectedFrame {
     Posts,
     ViewPost,
 }
 
+/// All the information needed to render a singe post
 #[derive(Debug, Clone)]
 pub struct Post {
     pub title: String,
@@ -70,6 +73,7 @@ pub struct App {
 }
 
 impl App {
+    /// Creates a new app using the default settings
     pub fn new() -> Self {
         let posts = Self::load_posts();
         App {
@@ -94,12 +98,15 @@ impl App {
         }
     }
 
+    /// Attempts a login using the email and password given
+    /// Returns Ok(()) when login is successful, and Err(()) otherwise (invalid email or password)
     pub fn login(&mut self, email: &str, password: String) -> Result<(), ()> {
         let user = Self::authenticate(&email, password)?;
         self.set_user(user);
         Ok(())
     }
 
+    /// Submits a new post to the database and refreshes the list of posts to view
     pub fn submit_post(&self, title: &str, text: &str) {
         let connection = st_read::establish_connection();
         use st_read::schema::post::dsl as post_dsl;
@@ -126,11 +133,13 @@ impl App {
             .unwrap();
     }
 
+    /// Reloads the posts from the database
     pub fn reload_posts(&mut self) {
         let posts = Self::load_posts();
         self.posts_frame = PostsListFrame::with_items(posts);
     }
 
+    /// Loads the current posts from the database
     fn load_posts() -> Vec<Post> {
         use st_read::schema::post::dsl as post_dsl;
         use st_read::schema::postcomment::dsl as post_comment_dsl;
@@ -151,14 +160,18 @@ impl App {
 
         posts
             .into_iter()
-            .map(|p| {
-                let mut short = p.text[..16.min(p.text.len())].to_owned();
+            // Execute this closure for each post so that we can load more information about it
+            .map(|base_post| {
+                let mut short = base_post.text[..16.min(base_post.text.len())].to_owned();
                 short.push_str(" ...");
                 let author_id = posts_dsl::posts
-                    .filter(post_id_dsl.eq(p.post_id))
+                    .filter(post_id_dsl.eq(base_post.post_id))
                     .first::<Posts>(&connection)
                     .unwrap_or_else(|e| {
-                        panic!("Failed to load author with post id {}: {}", p.post_id, e)
+                        panic!(
+                            "Failed to load author with post id {}: {}",
+                            base_post.post_id, e
+                        )
                     });
 
                 let author: User = users_dsl::users
@@ -171,7 +184,7 @@ impl App {
                 let author = author.name.clone();
 
                 let root_comments: Vec<PostCommentOn> = post_comment_on_dsl::postcommenton
-                    .filter(post_comment_on_id.eq(p.post_id))
+                    .filter(post_comment_on_id.eq(base_post.post_id))
                     .get_results(&connection)
                     .unwrap();
 
@@ -246,18 +259,18 @@ impl App {
                 }
 
                 let upvotes: Vec<PostReaction> = post_reaction_dsl::postreaction
-                    .filter(post_reaction_post_id_dsl.eq(p.post_id))
+                    .filter(post_reaction_post_id_dsl.eq(base_post.post_id))
                     .get_results(&connection)
                     .unwrap();
 
                 let stats = format!("{comment_num} comments, {} upvotes", upvotes.len());
 
                 Post {
-                    title: p.title,
+                    title: base_post.title,
                     short,
                     stats,
                     author,
-                    full: p.text,
+                    full: base_post.text,
                     comments,
                 }
             })
