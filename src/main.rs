@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tick_rate = Duration::from_millis(250);
     let app = App::new();
 
-    // This funcion runs the event loop and renders the entire app. 
+    // This funcion runs the event loop and renders the entire app.
     // It returns when the user has exited
     let res = run_app(&mut terminal, app, tick_rate);
 
