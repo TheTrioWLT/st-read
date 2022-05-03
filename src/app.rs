@@ -5,7 +5,7 @@ use std::{
 
 use crossterm::event::{self, Event, KeyCode};
 use diesel::prelude::*;
-use st_read::models::{Posts, User};
+use st_read::models::{PostComment, PostCommentOn, PostComments, Posts, User};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -68,8 +68,15 @@ impl App {
     fn load_posts() -> Vec<Post> {
         use st_read::models::Post as DbPost;
         use st_read::schema::post::dsl as post_dsl;
+        use st_read::schema::postcomment::dsl as post_comment_dsl;
+        use st_read::schema::postcomment::dsl::comment_id as post_comment_comment_id;
+        use st_read::schema::postcommenton::dsl as post_comment_on_dsl;
+        use st_read::schema::postcommenton::post_id as post_comment_on_id;
+        use st_read::schema::postcomments::dsl as post_comments_dsl;
+        use st_read::schema::postcomments::dsl::comment_id as post_comments_comment_id;
         use st_read::schema::posts::dsl as posts_dsl;
         use st_read::schema::posts::dsl::post_id as post_id_dsl;
+        use st_read::schema::replyto::dsl as reply_to_dsl;
         use st_read::schema::users::dsl as users_dsl;
         use st_read::schema::users::dsl::user_id as user_id_dsl;
 
@@ -82,23 +89,49 @@ impl App {
                 let mut short = p.text[..16.min(p.text.len())].to_owned();
                 short.push_str(" ...");
                 let stats = "STATS TODO".to_owned();
-                let author_id = match posts_dsl::posts
+                let author_id = posts_dsl::posts
                     .filter(post_id_dsl.eq(p.post_id))
                     .first::<Posts>(&connection)
-                {
-                    Ok(user) => user.user_id,
-                    Err(e) => panic!("Failed to load author with post id {}: {}", p.post_id, e),
-                };
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to load author with post id {}: {}", p.post_id, e)
+                    });
 
-                let author: User = match users_dsl::users
-                    .filter(user_id_dsl.eq(author_id))
+                let author: User = users_dsl::users
+                    .filter(user_id_dsl.eq(author_id.user_id))
                     .first(&connection)
-                {
-                    Ok(u) => u,
-                    Err(e) => panic!("Failed to find user id {}: {}", author_id, e),
-                };
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to find user id {}: {}", author_id.user_id, e)
+                    });
 
                 let author = author.name.clone();
+
+                let root_comments: Vec<PostCommentOn> = post_comment_on_dsl::postcommenton
+                    .filter(post_comment_on_id.eq(p.post_id))
+                    .get_results(&connection)
+                    .unwrap();
+
+                let comments = root_comments
+                    .into_iter()
+                    .map(|base_comment| {
+                        let post_comment: PostComment = post_comment_dsl::postcomment
+                            .filter(post_comment_comment_id.eq(base_comment.comment_id))
+                            .first(&connection)
+                            .unwrap();
+                        let comment: PostComments = post_comments_dsl::postcomments
+                            .filter(post_comments_comment_id.eq(base_comment.comment_id))
+                            .first(&connection)
+                            .unwrap();
+
+                        let comment_author: User = users_dsl::users
+                            .filter(user_id_dsl.eq(comment.user_id))
+                            .first(&connection)
+                            .unwrap_or_else(|e| {
+                                panic!("Failed to find user id {}: {}", author_id.user_id, e)
+                            });
+
+                        Comment::new(post_comment.text, &comment_author.name, vec![])
+                    })
+                    .collect();
 
                 Post {
                     title: p.title,
@@ -106,7 +139,7 @@ impl App {
                     stats,
                     author,
                     full: p.text,
-                    comments: vec![],
+                    comments,
                 }
             })
             .collect()

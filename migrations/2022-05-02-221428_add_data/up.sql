@@ -79,12 +79,12 @@ INSERT INTO PostComment
 INSERT INTO PostComment
     (comment_id, text)
     VALUES
-    (7, 'I think I"ll just use the sink.');
+    (8, 'I think I"ll just use the sink.');
 
 INSERT INTO PostComment
     (comment_id, text)
     VALUES
-    (8, 'There was a time when my family named our toilet "John" and whenever my sister was taking too long in there we"d make up stories about how she was cheating on her boyfriend with John.This brings back some memories.');
+    (7, 'There was a time when my family named our toilet "John" and whenever my sister was taking too long in there we"d make up stories about how she was cheating on her boyfriend with John.This brings back some memories.');
 
 INSERT INTO PostComment
     (comment_id, text)
@@ -131,7 +131,7 @@ INSERT INTO PostCommentOn
 INSERT INTO PostCommentOn
     (comment_id, post_id)
     VALUES
-    (2, 2);
+    (2, 1);
 
 INSERT INTO PostCommentOn
     (comment_id, post_id)
