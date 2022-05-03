@@ -1,6 +1,8 @@
 use std::time::SystemTime;
 
-#[derive(Queryable)]
+use super::schema::*;
+
+#[derive(Queryable, Debug)]
 pub struct User {
     pub user_id: i32,
     pub email: String,
@@ -9,8 +11,6 @@ pub struct User {
     pub dark_mode: bool,
     pub email_notifications: bool,
 }
-
-use super::schema::post;
 
 #[derive(Queryable, Insertable, Debug)]
 #[table_name = "post"]
@@ -21,7 +21,7 @@ pub struct Post {
     pub text: String,
 }
 
-#[derive(Queryable)]
+#[derive(Queryable, Debug)]
 pub struct Posts {
     pub user_id: i32,
     pub post_id: i32,

@@ -61,6 +61,11 @@ table! {
 table! {
     users (user_id) {
         user_id -> Int4,
+        email -> Varchar,
+        name -> Varchar,
+        password_hash -> Bytea,
+        dark_mode -> Bool,
+        email_notifications_enabled -> Bool,
     }
 }
 

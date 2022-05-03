@@ -4,6 +4,8 @@ use std::{
 };
 
 use crossterm::event::{self, Event, KeyCode};
+use diesel::prelude::*;
+use st_read::models::{Posts, User};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -32,11 +34,11 @@ pub enum SelectedFrame {
 
 #[derive(Debug, Clone)]
 pub struct Post {
-    pub title: &'static str,
-    pub short: &'static str,
-    pub stats: &'static str,
-    pub author: &'static str,
-    pub full: &'static str,
+    pub title: String,
+    pub short: String,
+    pub stats: String,
+    pub author: String,
+    pub full: String,
     pub comments: Vec<Comment>,
 }
 
@@ -52,39 +54,62 @@ pub struct App {
 
 impl App {
     pub fn new() -> Self {
+        let posts = Self::load_posts();
         App {
             page_title: PageTitle::new("Homepage"),
-            posts_frame: PostsListFrame::with_items(vec![
-                    Post {
-                        title: "My New Cat",
-                        short: "I just purchased a new cat named Fluffy ...",
-                        stats: "33 Comments, 152 Upvotes",
-                        author: "Troy Neubauer",
-                        full: "",
-                        comments: Vec::new()
-                    },
-                    Post {
-                        title: "Why I hate Windows",
-                        short: "I've had enough with Windows ...",
-                        stats: "91 Comments, 0 Upvotes",
-                        author: "Luke Newcomb",
-                        full: "I have had enough with Windows. Today my machine auto-updated to Windows 11! Deleting my entire Linux partition in the process.",
-                        comments: vec![Comment::new("As deserved for a Linux user lmao. \"I use Arch BTW.\" Get out of here.", "Jeremiah Webb")]
-                    },
-                    Post {
-                        title: "Hello ST-Read",
-                        short: "Hello ST-read. Welcome to our new site! ...",
-                        stats: "12 Comments, 4 Upvotes",
-                        author: "Troy Neubauer",
-                        full: "",
-                        comments: Vec::new()
-                    },
-            ]),
+            posts_frame: PostsListFrame::with_items(posts),
             viewing_frame: ViewingPostFrame::new(),
             view: AppView::Homepage,
             selected_frame: SelectedFrame::Posts,
-            quittable: true
+            quittable: true,
         }
+    }
+
+    fn load_posts() -> Vec<Post> {
+        use st_read::models::Post as DbPost;
+        use st_read::schema::post::dsl as post_dsl;
+        use st_read::schema::posts::dsl as posts_dsl;
+        use st_read::schema::posts::dsl::post_id as post_id_dsl;
+        use st_read::schema::users::dsl as users_dsl;
+        use st_read::schema::users::dsl::user_id as user_id_dsl;
+
+        let connection = st_read::establish_connection();
+        let posts = post_dsl::post.get_results::<DbPost>(&connection).unwrap();
+
+        posts
+            .into_iter()
+            .map(|p| {
+                let mut short = p.text[..16.min(p.text.len())].to_owned();
+                short.push_str(" ...");
+                let stats = "STATS TODO".to_owned();
+                let author_id = match posts_dsl::posts
+                    .filter(post_id_dsl.eq(p.post_id))
+                    .first::<Posts>(&connection)
+                {
+                    Ok(user) => user.user_id,
+                    Err(e) => panic!("Failed to load author with post id {}: {}", p.post_id, e),
+                };
+
+                let author: User = match users_dsl::users
+                    .filter(user_id_dsl.eq(author_id))
+                    .first(&connection)
+                {
+                    Ok(u) => u,
+                    Err(e) => panic!("Failed to find user id {}: {}", author_id, e),
+                };
+
+                let author = author.name.clone();
+
+                Post {
+                    title: p.title,
+                    short,
+                    stats,
+                    author,
+                    full: p.text,
+                    comments: vec![],
+                }
+            })
+            .collect()
     }
 }
 

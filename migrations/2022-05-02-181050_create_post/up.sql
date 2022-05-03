@@ -1,4 +1,4 @@
-CREATE TABLE post (
+CREATE TABLE Post (
     post_id SERIAL UNIQUE PRIMARY KEY,
     date_posted TIMESTAMP NOT NULL,
     title TEXT NOT NULL,
