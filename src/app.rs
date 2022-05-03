@@ -6,7 +6,9 @@ use std::{
 use crossterm::event::{self, Event, KeyCode};
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use st_read::models::{NewPost, PostComment, PostCommentOn, PostComments, Posts, User};
+use st_read::models::{
+    NewPost, PostComment, PostCommentOn, PostComments, PostReaction, Posts, User,
+};
 use st_read::models::{Post as DbPost, ReplyTo};
 use tui::{
     backend::Backend,
@@ -120,6 +122,8 @@ impl App {
         use st_read::schema::postcommenton::post_id as post_comment_on_id;
         use st_read::schema::postcomments::dsl as post_comments_dsl;
         use st_read::schema::postcomments::dsl::comment_id as post_comments_comment_id;
+        use st_read::schema::postreaction::dsl as post_reaction_dsl;
+        use st_read::schema::postreaction::dsl::post_id as post_reaction_post_id_dsl;
         use st_read::schema::posts::dsl as posts_dsl;
         use st_read::schema::posts::dsl::post_id as post_id_dsl;
         use st_read::schema::users::dsl as users_dsl;
@@ -133,7 +137,6 @@ impl App {
             .map(|p| {
                 let mut short = p.text[..16.min(p.text.len())].to_owned();
                 short.push_str(" ...");
-                let stats = "STATS TODO".to_owned();
                 let author_id = posts_dsl::posts
                     .filter(post_id_dsl.eq(p.post_id))
                     .first::<Posts>(&connection)
@@ -213,6 +216,24 @@ impl App {
                         comment
                     })
                     .collect();
+
+                let mut comment_num = 0;
+                fn count_comments(comment: &Comment, comment_num: &mut usize) {
+                    *comment_num += 1;
+                    for comment in &comment.children {
+                        count_comments(comment, comment_num)
+                    }
+                }
+                for comment in &comments {
+                    count_comments(comment, &mut comment_num)
+                }
+
+                let upvotes: Vec<PostReaction> = post_reaction_dsl::postreaction
+                    .filter(post_reaction_post_id_dsl.eq(p.post_id))
+                    .get_results(&connection)
+                    .unwrap();
+
+                let stats = format!("{comment_num} comments, {} upvotes", upvotes.len());
 
                 Post {
                     title: p.title,

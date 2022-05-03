@@ -40,7 +40,7 @@ table! {
     postreaction (user_id, post_id) {
         user_id -> Int4,
         post_id -> Int4,
-        upvote -> Nullable<Bool>,
+        upvote -> Bool,
     }
 }
 

@@ -72,7 +72,8 @@ pub struct ReplyTo {
     pub child_comment: i32,
 }
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Insertable, Debug)]
+#[table_name = "postreaction"]
 pub struct PostReaction {
     pub user_id: i32,
     pub post_id: i32,

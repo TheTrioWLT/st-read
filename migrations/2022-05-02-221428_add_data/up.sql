@@ -264,7 +264,27 @@ INSERT INTO PostReaction
 INSERT INTO PostReaction
     (user_id, post_id, upvote)
     VALUES
+    (3, 2, true);
+
+INSERT INTO PostReaction
+    (user_id, post_id, upvote)
+    VALUES
+    (4, 2, true);
+
+INSERT INTO PostReaction
+    (user_id, post_id, upvote)
+    VALUES
+    (5, 2, true);
+
+INSERT INTO PostReaction
+    (user_id, post_id, upvote)
+    VALUES
     (3, 3, false);
+
+INSERT INTO PostReaction
+    (user_id, post_id, upvote)
+    VALUES
+    (4, 3, false);
 
 INSERT INTO PostReaction
     (user_id, post_id, upvote)
