@@ -15,6 +15,7 @@ pub enum SelectedOption {
     None,
 }
 
+/// Displays the user profile information
 pub struct UserProfileFrame {
     pub selected: SelectedOption,
     pub dark_mode: bool,
@@ -26,10 +27,13 @@ pub struct UserProfileFrame {
 
 impl UserProfileFrame {
     pub fn handle_key(app: &mut App, key: KeyEvent) {
+        // Handles key presses in the profile code
         match key.code {
             KeyCode::Esc => {
+                // If we press escape, go back to the homepage
                 app.set_view(AppView::Homepage);
             }
+            // The arrow keys move between selected elements
             KeyCode::Down => {
                 if matches!(app.profile_frame.selected, SelectedOption::None) {
                     app.profile_frame.selected = SelectedOption::DarkMode;
@@ -57,6 +61,7 @@ impl UserProfileFrame {
                     app.profile_frame.email_notifications = !app.profile_frame.email_notifications;
                 }
             }
+            // 'c' goes to the create post screen
             KeyCode::Char('c') => {
                 app.set_view(AppView::CreatePost);
             }
@@ -111,6 +116,7 @@ impl UserProfileFrame {
 
         f.render_widget(main, area);
 
+        // Display the username
         let name = Paragraph::new(Spans::from(Span::styled(
             &self.name,
             Style::default()
@@ -120,6 +126,7 @@ impl UserProfileFrame {
 
         f.render_widget(name, user_name_row);
 
+        // Display the email
         let email = Paragraph::new(Spans::from(Span::styled(
             &self.email,
             Style::default()
@@ -129,6 +136,7 @@ impl UserProfileFrame {
 
         f.render_widget(email, email_row);
 
+        // Display the dark mode toggle
         let dark_mode_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
@@ -153,6 +161,7 @@ impl UserProfileFrame {
 
         f.render_widget(dark_mode, dark_mode_row);
 
+        // Display the email Notifications toggle
         let (prompt_style, value_style, border_style) =
             get_styles(matches!(self.selected, SelectedOption::EmailNotifications));
 
@@ -183,6 +192,7 @@ impl UserProfileFrame {
     }
 }
 
+/// Gets the style of the prompt, the value, and the border when selected or not
 fn get_styles(selected: bool) -> (Style, Style, Style) {
     if selected {
         (

@@ -70,6 +70,7 @@ impl ViewingPostFrame {
     }
 
     pub fn handle_key(app: &mut App, key: KeyEvent) {
+        // If the user presses the left arrow, shift selection to the posts list
         if matches!(key.code, KeyCode::Left) {
             app.selected_frame = SelectedFrame::Posts;
         } else {
@@ -92,7 +93,7 @@ impl ViewingPostFrame {
                         }
                         KeyCode::Down => {
                             if app.viewing_frame.locked {
-                                // Scroll through the post
+                                // TODO: Scroll through the post
                             } else {
                                 // Move down to the CommentBox
                                 app.viewing_frame.selected_box = SelectedBox::Comments;
@@ -140,18 +141,22 @@ impl ViewingPostFrame {
 
             let mut text = Vec::new();
 
+            // Render the title
             text.push(Spans::from(Span::styled(
                 post.title,
                 Style::default().add_modifier(Modifier::BOLD),
             )));
 
+            // Render the author's name
             text.push(Spans::from(Span::styled(
                 format!("   by {}", post.author),
                 Style::default().add_modifier(Modifier::ITALIC),
             )));
 
+            // Render the actual text
             let text_strs = format!("\n{}\n\n", post.full);
 
+            // Here we have to split by newlines, because newlines aren't displayed properly
             for line in text_strs.split('\n') {
                 text.push(Spans::from(vec![Span::raw(line)]));
             }
@@ -161,6 +166,7 @@ impl ViewingPostFrame {
                 self.locked,
             );
 
+            // Finally render it all as a "Paragraph" widget
             let post = Paragraph::new(text)
                 .block(
                     Block::default()
@@ -289,6 +295,7 @@ impl CommentBox {
         f.render_widget(comments, area);
     }
 
+    /// Handles recursively rendering comments
     fn render_comment(comment: &Comment, depth: usize) -> Vec<Spans> {
         let mut spans = Vec::new();
 
@@ -312,6 +319,7 @@ impl CommentBox {
         }
 
         for comment in comment.children.iter() {
+            // This is the recursive part
             let mut child_spans = Self::render_comment(comment, depth + 1);
 
             spans.append(&mut child_spans);

@@ -24,6 +24,7 @@ pub struct PostsListFrame {
 }
 
 impl PostsListFrame {
+    /// Creates a new post list frame with the provided items
     pub fn with_items(posts: Vec<Post>) -> Self {
         let mut posts = StatefulList::with_items(posts);
         posts.with_highlight_style(
@@ -37,6 +38,7 @@ impl PostsListFrame {
         Self { posts }
     }
 
+    /// Handles the key that the user has pressed
     pub fn handle_key(app: &mut App, key: KeyEvent) {
         match key.code {
             KeyCode::Down | KeyCode::Char('j') => app.posts_frame.posts.next(),
@@ -63,8 +65,11 @@ impl PostsListFrame {
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect, is_selected: bool) {
         let highlight_symbol_width = self.posts.highlight_symbol().len();
+        // The placeholder used instead of the highlighting symbol to keep everything properly
+        // indented
         let placeholder = format!("{: ^width$}", "", width = highlight_symbol_width);
 
+        // The style used for posts that isn't selected
         let deselected_style = Style::default()
             .add_modifier(Modifier::ITALIC)
             .fg(Color::Gray);
@@ -86,6 +91,7 @@ impl PostsListFrame {
 
             match self.posts.selected() {
                 Some(s) if s == i => {
+                    // If the post is selected
                     for (i, line) in post.lines().enumerate() {
                         if i == 0 {
                             text.push(Spans::from(vec![
@@ -101,6 +107,7 @@ impl PostsListFrame {
                     }
                 }
                 _ => {
+                    // If the post is not selected
                     for line in post.lines() {
                         text.push(Spans::from(vec![
                             Span::raw(placeholder.clone()),
@@ -113,6 +120,7 @@ impl PostsListFrame {
 
         let border_style = get_border_style(is_selected, false);
 
+        // Render it as a "paragraph"
         let posts = Paragraph::new(text).wrap(Wrap { trim: false }).block(
             Block::default()
                 .borders(Borders::ALL)

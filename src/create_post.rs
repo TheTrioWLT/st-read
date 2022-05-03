@@ -8,6 +8,7 @@ use tui::{backend::Backend, widgets::Paragraph};
 
 use crate::app::{get_border_style, App, AppView};
 
+/// Enum for which box is selected on the create post screen
 #[derive(Debug, Copy, Clone)]
 enum SelectedBox {
     Title,
@@ -15,6 +16,7 @@ enum SelectedBox {
     PostButton,
 }
 
+/// Represents the view where the user can create a new post
 pub struct CreatePostFrame {
     selected: SelectedBox,
     title_box: TitleBox,
@@ -35,9 +37,11 @@ impl CreatePostFrame {
     }
 
     pub fn handle_key(app: &mut App, key: KeyEvent) {
+        // If we aren't locked and the user presses escape, then we return to the homepage
         if app.create_frame.exitable && matches!(key.code, KeyCode::Esc) {
             app.set_view(AppView::Homepage);
         } else {
+            // We distribute the correct key events to the selected item
             if matches!(app.create_frame.selected, SelectedBox::Title) {
                 TitleBox::handle_key(app, key);
             } else if matches!(app.create_frame.selected, SelectedBox::Text) {
@@ -49,6 +53,7 @@ impl CreatePostFrame {
     }
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        // Creates a new vertical layout where the content takes up 86% of the view
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(
@@ -65,12 +70,15 @@ impl CreatePostFrame {
         let text_area = layout[1];
         let button_area = layout[2];
 
+        // Render the title box
         self.title_box
             .render(f, title_area, matches!(self.selected, SelectedBox::Title));
 
+        // Render the content box
         self.text_box
             .render(f, text_area, matches!(self.selected, SelectedBox::Text));
 
+        // Render the post button
         self.post_button.render(
             f,
             button_area,

@@ -298,6 +298,7 @@ impl App {
         }
     }
 
+    /// Sets the user's profile features based on the user read from the database
     pub fn set_user(&mut self, user: DbUser) {
         self.profile_frame.dark_mode = user.dark_mode;
         self.profile_frame.user_id = user.user_id;
@@ -306,6 +307,7 @@ impl App {
         self.profile_frame.email_notifications = user.email_notifications;
     }
 
+    /// Sets the App's view and changes the page title
     pub fn set_view(&mut self, view: AppView) {
         self.view = view;
 
@@ -348,10 +350,12 @@ pub fn run_app<B: Backend>(
 
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
+                // If we are quittable and the user presses 'q', then exit the loop
                 if app.quittable && matches!(key.code, KeyCode::Char('q')) {
                     return Ok(app);
                 }
 
+                // Pass the other keypresses to the assocated frames for handling
                 match app.view {
                     AppView::Homepage => match app.selected_frame {
                         SelectedFrame::Posts => {
@@ -395,6 +399,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     app.page_title.render(f, vertical[0]);
 
+    // Draws the different views based on the enum
     if matches!(app.view, AppView::Homepage) {
         // Create two chunks with equal horizontal screen space
         let constraints = if app.viewing_frame.has_post() {
@@ -434,6 +439,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     }
 }
 
+/// Generates the border style based off of if this item is selected or locked
 pub fn get_border_style(selected: bool, locked: bool) -> Style {
     let style = Style::default();
 
@@ -449,6 +455,7 @@ pub fn get_border_style(selected: bool, locked: bool) -> Style {
     }
 }
 
+/// The App's main title that shows whether it is the Homepage, Create Post page, etc.
 pub struct PageTitle {
     pub title: String,
 }
