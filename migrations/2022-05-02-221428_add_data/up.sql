@@ -74,7 +74,7 @@ INSERT INTO PostComment
 INSERT INTO PostComment
     (comment_id, text)
     VALUES
-    (6, '“And if you click your heels 3 times and make a wish, you’ll find your way home\nYO WADDUP HOMIES DROPPING MY LATEST MIXTAPE”');
+    (6, '“And if you click your heels 3 times and make a wish, you’ll find your way homeYO WADDUP HOMIES DROPPING MY LATEST MIXTAPE”');
 
 INSERT INTO PostComment
     (comment_id, text)
@@ -84,12 +84,12 @@ INSERT INTO PostComment
 INSERT INTO PostComment
     (comment_id, text)
     VALUES
-    (8, 'There was a time when my family named our toilet "John" and whenever my sister was taking too long in there we"d make up stories about how she was cheating on her boyfriend with John.\nThis brings back some memories.');
+    (8, 'There was a time when my family named our toilet "John" and whenever my sister was taking too long in there we"d make up stories about how she was cheating on her boyfriend with John.This brings back some memories.');
 
 INSERT INTO PostComment
     (comment_id, text)
     VALUES
-    (9, 'Isn"t it better to name your toilet "Jim" instead?\nBecause then you can claim that you go to the Jim everyday.');
+    (9, 'Isn"t it better to name your toilet "Jim" instead? Because then you can claim that you go to the Jim everyday.');
 
 INSERT INTO PostComment
     (comment_id, text)
@@ -102,7 +102,7 @@ INSERT INTO PostComment
 INSERT INTO Post
     (post_id, date_posted, title, text)
     VALUES
-    (1, CURRENT_TIMESTAMP, 'Hello TS-Read!!!', 'Hello ts-read\nWeclome to our new site! We have built this as a open marketplace of ideas, where users are free to discuss issues and share information in a secure way.');
+    (1, CURRENT_TIMESTAMP, 'Hello TS-Read!!!', 'Hello ts-readWeclome to our new site! We have built this as a open marketplace of ideas, where users are free to discuss issues and share information in a secure way.');
 
 INSERT INTO Post
     (post_id, date_posted, title, text)
