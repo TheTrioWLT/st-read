@@ -12,8 +12,10 @@ use std::{
 use tui::{backend::CrosstermBackend, widgets::ListState, Terminal};
 
 mod app;
+mod create_post;
 mod list;
 mod posts_list;
+mod profile;
 mod viewing_post;
 
 //use diesel::prelude::*;

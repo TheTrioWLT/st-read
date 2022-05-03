@@ -16,6 +16,7 @@ use tui::Frame;
 
 use crate::app::get_border_style;
 use crate::app::App;
+use crate::app::AppView;
 use crate::app::Post;
 use crate::app::SelectedFrame;
 
@@ -95,6 +96,16 @@ impl ViewingPostFrame {
                             } else {
                                 // Move down to the CommentBox
                                 app.viewing_frame.selected_box = SelectedBox::Comments;
+                            }
+                        }
+                        KeyCode::Char('p') => {
+                            if !app.viewing_frame.locked {
+                                app.set_view(AppView::UserProfile);
+                            }
+                        }
+                        KeyCode::Char('c') => {
+                            if !app.viewing_frame.locked {
+                                app.set_view(AppView::CreatePost);
                             }
                         }
                         _ => {}
@@ -240,6 +251,16 @@ impl CommentBox {
                     app.viewing_frame.selected_box = SelectedBox::Main;
                 }
             }
+            KeyCode::Char('p') => {
+                if !app.viewing_frame.comment_box.locked {
+                    app.set_view(AppView::UserProfile);
+                }
+            }
+            KeyCode::Char('c') => {
+                if !app.viewing_frame.comment_box.locked {
+                    app.set_view(AppView::CreatePost);
+                }
+            }
             _ => {}
         }
     }
@@ -328,6 +349,12 @@ impl ReplyBox {
                 if app.viewing_frame.reply_box.locked {
                     app.viewing_frame.reply_box.del_char();
                 }
+            }
+            KeyCode::Char('p') if !app.viewing_frame.reply_box.locked => {
+                app.set_view(AppView::UserProfile);
+            }
+            KeyCode::Char('c') if !app.viewing_frame.reply_box.locked => {
+                app.set_view(AppView::CreatePost);
             }
             KeyCode::Char(c) => {
                 if app.viewing_frame.reply_box.locked {
