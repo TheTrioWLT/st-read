@@ -409,8 +409,7 @@ impl RegisterButtonBox {
                         app.set_user(user);
                         app.set_view(AppView::Homepage);
                     }
-                    Err(e) => {
-                    }
+                    Err(_) => {}
                 }
             }
             KeyCode::Up => {
