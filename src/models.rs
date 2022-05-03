@@ -5,12 +5,9 @@ use super::schema::*;
 #[derive(Insertable, Debug)]
 #[table_name = "users"]
 pub struct NewUser {
-    pub user_id: i32,
     pub email: String,
     pub name: String,
     pub password_hash: Vec<u8>,
-    pub dark_mode: bool,
-    pub email_notifications_enabled: bool,
 }
 
 #[derive(Queryable, Debug)]

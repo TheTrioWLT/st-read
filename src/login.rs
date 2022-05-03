@@ -33,6 +33,9 @@ impl LoginFrame {
             LoginSelectedBox::Username => {
                 UsernameBox::handle_key(app, key);
             }
+            LoginSelectedBox::Name => {
+                app.login_frame.selected = LoginSelectedBox::Username;
+            }
             LoginSelectedBox::Password => {
                 PasswordBox::handle_key(app, key);
             }
@@ -68,9 +71,9 @@ impl LoginFrame {
             .constraints(
                 [
                     Constraint::Percentage(30),
-                    Constraint::Percentage(15),
-                    Constraint::Percentage(10),
-                    Constraint::Percentage(15),
+                    Constraint::Percentage(1),
+                    Constraint::Percentage(38),
+                    Constraint::Percentage(1),
                     Constraint::Percentage(30),
                 ]
                 .as_ref(),
@@ -190,7 +193,7 @@ impl UsernameBox {
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(border_style)
-                    .title("Username"),
+                    .title("Email"),
             )
             .wrap(Wrap { trim: false });
 
@@ -290,7 +293,18 @@ impl LoginButtonBox {
     pub fn handle_key(app: &mut App, key: KeyEvent) {
         match key.code {
             KeyCode::Enter => {
-                app.set_view(AppView::Homepage);
+                let email = std::mem::take(&mut app.login_frame.username.text);
+                let password = std::mem::take(&mut app.login_frame.password.text);
+                let res = app.login(&email, password);
+
+                match res {
+                    Ok(()) => {
+                        app.set_view(AppView::Homepage);
+                    }
+                    Err(()) => {
+                        app.login_frame.selected = LoginSelectedBox::Username;
+                    }
+                }
             }
             KeyCode::Up => {
                 app.login_frame.selected = LoginSelectedBox::Password;

@@ -9,7 +9,7 @@ use diesel::prelude::*;
 use st_read::models::{
     NewPost, PostComment, PostCommentOn, PostComments, PostReaction, Posts, User,
 };
-use st_read::models::{Post as DbPost, ReplyTo};
+use st_read::models::{Post as DbPost, ReplyTo, User as DbUser};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -70,8 +70,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(email: String, password: String) -> Self {
-        let user = Self::authenticate(&email, password).unwrap();
+    pub fn new() -> Self {
         let posts = Self::load_posts();
         App {
             page_title: PageTitle::new("Welcome to ST-Read"),
@@ -86,13 +85,19 @@ impl App {
             quittable: true,
             profile_frame: UserProfileFrame {
                 selected: crate::profile::SelectedOption::None,
-                dark_mode: user.dark_mode,
-                user_id: user.user_id,
-                email_notifications: user.email_notifications,
-                email,
-                name: user.name,
+                dark_mode: false,
+                user_id: 0,
+                email_notifications: false,
+                email: String::new(),
+                name: String::new(),
             },
         }
+    }
+
+    pub fn login(&mut self, email: &str, password: String) -> Result<(), ()> {
+        let user = Self::authenticate(&email, password)?;
+        self.set_user(user);
+        Ok(())
     }
 
     pub fn submit_post(&self, title: &str, text: &str) {
@@ -267,7 +272,7 @@ impl App {
         let user: User = users_dsl::users
             .filter(email_dsl.eq(&email))
             .first(&connection)
-            .map_err(|e| panic!("{}", e))?;
+            .map_err(|_| ())?;
 
         let hash = st_read::util::hash(&password, &user.name);
         let correct = user.password_hash.as_slice() == &hash;
@@ -278,6 +283,14 @@ impl App {
             true => Ok(user),
             false => Err(()),
         }
+    }
+
+    pub fn set_user(&mut self, user: DbUser) {
+        self.profile_frame.dark_mode = user.dark_mode;
+        self.profile_frame.user_id = user.user_id;
+        self.profile_frame.name = user.name;
+        self.profile_frame.email = user.email;
+        self.profile_frame.email_notifications = user.email_notifications;
     }
 
     pub fn set_view(&mut self, view: AppView) {

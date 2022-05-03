@@ -140,6 +140,7 @@ impl InitialButtonBox {
 #[derive(Debug, Clone, Copy)]
 pub enum LoginSelectedBox {
     Username,
+    Name,
     Password,
     BackButton,
     ActionButton,
